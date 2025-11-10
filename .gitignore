@@ -1,3 +1,4 @@
 # Arquivos de ambiente virtual e cache
+venv/
 *.pyc
 __pycache__/

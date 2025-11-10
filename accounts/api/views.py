@@ -9,10 +9,10 @@ from rest_framework.filters import SearchFilter
 from accounts.models import User 
 from accounts.forms import ClientProfessionalCreationForm 
 
-# Importa Serializers (presumimos que estes estão no mesmo pacote)
+# Importa Serializers
 from .serializers import ProfessionalSerializer, FullProfileSerializer, CustomAuthTokenSerializer 
 
-# Importa a View de Cadastro de contas/views.py
+# Importa a View de Cadastro
 from accounts.views import CadastroView 
 
 
@@ -22,20 +22,22 @@ class ProfessionalViewSet(viewsets.ReadOnlyModelViewSet):
     Lista apenas usuários que são profissionais (is_professional=True) e permite busca.
     Endpoint: /api/v1/accounts/profissionais/
     """
-    queryset = User.objects.filter(is_professional=True)
+    
+    # GARANTIA 1: Filtra por is_professional=True E profile__isnull=False.
+    queryset = User.objects.filter(is_professional=True, profile__isnull=False).select_related('profile')
+    
     serializer_class = ProfessionalSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly] 
     
     # Ativar o SearchFilter
     filter_backends = [SearchFilter] 
     
-    # Campos que serão buscados pelo SearchFilter (usando o parâmetro ?search=)
+    # GARANTIA 2: Usa os nomes CORRETOS dos campos do models.py
     search_fields = [
-        '=email',                       # Busca exata (não prefixada)
-        'profile__full_name',           # Nome completo
-        'profile__servico_principal',   # Serviço principal
-        'profile__cidade',              # Cidade
-        'profile__estado',              # Estado             
+        '=email',                       
+        'profile__full_name',           
+        'profile__palavras_chave',      
+        'profile__address',             
     ]
 
 
@@ -51,6 +53,7 @@ class ProfileViewSet(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewset
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
+        # A view deve sempre operar no perfil do usuário logado
         return User.objects.filter(pk=self.request.user.pk)
 
     @action(detail=False, methods=['get', 'put', 'patch'], url_path='me')

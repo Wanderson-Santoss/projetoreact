@@ -3,6 +3,8 @@ import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { BoxArrowInRight } from 'react-bootstrap-icons';
+// 🚨 IMPORTAÇÃO CRÍTICA: Use a função global de configuração
+import { setAuthToken } from '../config/axiosConfig'; 
 
 const Login = () => {
     const navigate = useNavigate();
@@ -11,14 +13,16 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    // Endpoint de login (CustomAuthToken)
+    // Endpoint de login (Djoser/authtoken)
     const LOGIN_URL = '/api/v1/auth/login/'; 
 
     // Efeito para verificar se o usuário já está logado
     useEffect(() => {
         const token = localStorage.getItem('userToken');
         if (token) {
-            navigate('/me'); 
+            // Se já está logado, redireciona. 
+            // A configuração do token no Axios já deve ter ocorrido no App.jsx.
+            navigate('/meu-perfil'); 
         }
     }, [navigate]);
 
@@ -28,37 +32,43 @@ const Login = () => {
         setLoading(true);
 
         try {
-            // 🚨 LÓGICA CORRIGIDA: Enviamos APENAS 'email' e 'password', conforme esperado pelo CustomAuthToken.
+            // Enviar o e-mail no campo 'username'
             const response = await axios.post(LOGIN_URL, {
-                email: email,
-                username:email,
+                username: email,
                 password: password
             });
 
-            // O backend CustomAuthToken retorna o token na chave 'auth_token' (ou 'token' se for o DRF padrão).
-            const token = response.data.auth_token || response.data.token;
+            // Lógica para extrair o token da chave 'key' (padrão rest_framework.authtoken)
+            const token = response.data.key || response.data.auth_token || response.data.token;
             
             if (token) {
+                // 1. Salva o token no armazenamento local
                 localStorage.setItem('userToken', token);
-                // Configura o token para requisições futuras
-                axios.defaults.headers.common['Authorization'] = `Token ${token}`;
                 
-                navigate('/me'); 
-                // window.location.reload(); // Removido: Pode ser desnecessário se o App está bem configurado.
+                // 2. 🚨 DEFINE O TOKEN GLOBALMENTE NO AXIOS (ESSENCIAL PARA O 401)
+                setAuthToken(token);
+                
+                // 3. Redireciona para a rota protegida
+                console.log("Autenticação bem-sucedida. Redirecionando...");
+                navigate('/meu-perfil'); 
+                
             } else {
-                setError("O servidor não retornou um token de autenticação.");
+                // Token não encontrado na resposta 200
+                setError("O servidor retornou sucesso, mas o token de autenticação não foi encontrado na resposta.");
             }
 
         } catch (err) {
+            // Tratamento de erro (ex: 400 Bad Request)
             console.error("Erro no login:", err.response || err);
             
             let errorMessage = "Falha na comunicação com o servidor.";
 
             if (err.response && err.response.status === 400) {
-                 // 400 Bad Request: Credenciais inválidas
                  errorMessage = "Credenciais inválidas. Verifique seu e-mail e senha.";
             } else if (err.response && err.response.data && err.response.data.non_field_errors) {
                 errorMessage = err.response.data.non_field_errors.join(' ');
+            } else if (err.message === 'Network Error') {
+                errorMessage = 'Erro de rede. Verifique sua conexão ou se o servidor está online.';
             }
             
             setError(errorMessage);
@@ -75,6 +85,7 @@ const Login = () => {
                     <BoxArrowInRight className="me-2 text-primary" /> Acesso
                 </h2>
 
+                {/* Exibe o erro se houver */}
                 {error && <Alert variant="danger">{error}</Alert>}
 
                 <Form onSubmit={handleSubmit}>
@@ -105,7 +116,7 @@ const Login = () => {
                         />
                     </Form.Group>
                     
-                    {/* 🚨 NOVO: LINK ESQUECEU A SENHA */}
+                    {/* LINK ESQUECEU A SENHA */}
                     <div className="d-flex justify-content-end mb-3">
                         <Link to="/forgot-password" className="text-vagali-link small">
                             Esqueceu sua senha?
@@ -116,7 +127,7 @@ const Login = () => {
                     <Button 
                         type="submit" 
                         className="w-100 fw-bold py-2"
-                        variant="primary" // Usando 'primary' se houver a cor configurada, senão ajuste para 'warning' ou similar
+                        variant="primary" 
                         disabled={loading}
                     >
                         {loading ? <Spinner animation="border" size="sm" /> : 'Entrar'}

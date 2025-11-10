@@ -18,10 +18,9 @@ class ServiceSerializer(serializers.ModelSerializer):
 class DemandaSerializer(serializers.ModelSerializer):
     """ 
     Serializer de Demanda. 
-    Inclui campos read-only para nome do cliente e do serviço.
+    Inclui campos read-only para nome do cliente, serviço, ícone e valor da oferta aceita.
     """
     
-    # CORREÇÃO: Removido o argumento 'queryset'
     service_name = serializers.SlugRelatedField(
         source='service', 
         slug_field='name', 
@@ -30,6 +29,8 @@ class DemandaSerializer(serializers.ModelSerializer):
 
     client_name = serializers.SerializerMethodField()
     professional_name = serializers.SerializerMethodField()
+    service_icon = serializers.SerializerMethodField()
+    accepted_offer_value = serializers.SerializerMethodField() # Para o valor, se houver oferta aceita
 
     class Meta:
         model = Demanda
@@ -42,16 +43,17 @@ class DemandaSerializer(serializers.ModelSerializer):
             'professional', 
             'professional_name',
             'titulo', 
-            'descricao', 
+            'descricao', # Descrição da demanda
             'status', 
             'cep',
             'created_at',
+            'service_icon', 
+            'accepted_offer_value',
         )
         read_only_fields = ('client', 'professional', 'status', 'created_at')
 
     # Método para buscar o nome do cliente
     def get_client_name(self, obj):
-        # Prioriza o nome completo no perfil, senão usa o e-mail (fallback)
         if obj.client and obj.client.profile:
             return obj.client.profile.full_name if obj.client.profile.full_name else obj.client.email
         return None
@@ -62,14 +64,29 @@ class DemandaSerializer(serializers.ModelSerializer):
             return obj.professional.profile.full_name if obj.professional.profile.full_name else obj.professional.email
         return None
 
+    # Método para buscar o ícone do serviço (Requer que você adicione 'icon' ao models.py)
+    def get_service_icon(self, obj):
+        # Tenta buscar o campo 'icon' do Service, ou '🛠️' como fallback
+        return getattr(obj.service, 'icon', '🛠️') 
+    
+    # Método para buscar o valor da Oferta ACEITA
+    def get_accepted_offer_value(self, obj):
+        # O valor só é relevante se a demanda tiver um profissional atribuído
+        if obj.status in ['em_andamento', 'concluida']:
+            try:
+                # Busca a oferta que foi aceita (só deve existir uma)
+                accepted_offer = obj.offers.get(status='aceita')
+                # Retorna o valor como float para facilitar o uso no frontend
+                return float(accepted_offer.proposta_valor) 
+            except Offer.DoesNotExist:
+                return None
+        return None
+
 
 # --- Serializer de Oferta ---
 class OfferSerializer(serializers.ModelSerializer):
-    """ 
-    Serializer de Oferta.
-    Inclui campos read-only para o nome do profissional e do cliente da demanda.
-    """
-    
+    """ Serializer de Oferta. """
+    # ... (restante do código inalterado) ...
     professional_name = serializers.SerializerMethodField()
     demanda_client_name = serializers.SerializerMethodField() 
 
@@ -88,13 +105,11 @@ class OfferSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('professional', 'status', 'created_at')
         
-    # Método para buscar o nome do profissional
     def get_professional_name(self, obj):
         if obj.professional and obj.professional.profile:
             return obj.professional.profile.full_name if obj.professional.profile.full_name else obj.professional.email
         return None
 
-    # Método para buscar o nome do cliente da demanda
     def get_demanda_client_name(self, obj):
         client = obj.demanda.client
         if client and client.profile:
@@ -124,13 +139,11 @@ class FeedbackSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('client', 'created_at')
 
-    # Método para buscar o nome do cliente
     def get_client_name(self, obj):
         if obj.client and obj.client.profile:
             return obj.client.profile.full_name if obj.client.profile.full_name else obj.client.email
         return None
 
-    # Método para buscar o nome do profissional
     def get_professional_name(self, obj):
         if obj.professional and obj.professional.profile:
             return obj.professional.profile.full_name if obj.professional.profile.full_name else obj.professional.email

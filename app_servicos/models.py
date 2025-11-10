@@ -25,6 +25,8 @@ class Service(models.Model):
     """ Tipos de serviços (ex: Eletricista, Encanador, Faxineira). """
     name = models.CharField(_('Nome do Serviço'), max_length=100, unique=True)
     description = models.TextField(_('Descrição'))
+    # NOVO CAMPO: Para exibir um ícone no frontend
+    icon = models.CharField(_('Ícone (Emoji ou CSS class)'), max_length=50, default='🛠️')
 
     def __str__(self):
         return self.name
@@ -43,7 +45,7 @@ class Demanda(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='demandas_criadas',
-        limit_choices_to={'is_professional': False} # Apenas Clientes criam demandas
+        limit_choices_to={'is_professional': False} 
     )
     
     # O profissional que aceitou a demanda (opcional, pode ser NULL)
@@ -53,8 +55,8 @@ class Demanda(models.Model):
         null=True,
         blank=True,
         related_name='demandas_aceitas',
-        limit_choices_to={'is_professional': True} # Apenas Profissionais aceitam
-    ) # <-- ESTE CAMPO ESTAVA FALTANDO OU INCORRETO!
+        limit_choices_to={'is_professional': True} 
+    ) 
     
     service = models.ForeignKey(
         Service,
@@ -97,7 +99,7 @@ class Offer(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='offers_feitas',
-        limit_choices_to={'is_professional': True} # Apenas Profissionais fazem ofertas
+        limit_choices_to={'is_professional': True} 
     )
     
     proposta_valor = models.DecimalField(_('Valor Proposto'), max_digits=10, decimal_places=2)
@@ -117,7 +119,6 @@ class Offer(models.Model):
     class Meta:
         verbose_name = _('Oferta')
         verbose_name_plural = _('Ofertas')
-        # Garante que um profissional só pode fazer uma oferta por demanda
         unique_together = ('demanda', 'professional')
 
 

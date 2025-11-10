@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, Button } from 'react-bootstrap';
-import { StarFill } from 'react-bootstrap-icons'; 
+// CORREÇÃO: Substituindo 'react-bootstrap-icons' por 'lucide-react'
+import { Star } from 'lucide-react'; 
 import { Link } from 'react-router-dom';
 
 const ProfileCard = ({ professional }) => {
@@ -9,7 +10,8 @@ const ProfileCard = ({ professional }) => {
     const bioSnippet = professional.bio 
         ? professional.bio.substring(0, 70) + (professional.bio.length > 70 ? '...' : '') 
         : "Sem descrição.";
-    const rating = parseFloat(professional.rating || 0.0).toFixed(2); // Garante 2 casas decimais
+    // Garante que a nota seja exibida com 2 casas decimais, tratando o caso undefined/null
+    const rating = parseFloat(professional.rating || 0.0).toFixed(2); 
 
     // 2. Lógica para as Iniciais
     const initials = fullName 
@@ -59,7 +61,8 @@ const ProfileCard = ({ professional }) => {
                 <div className="mt-auto d-flex justify-content-between align-items-center pt-3 border-top border-secondary">
                     {/* Avaliação */}
                     <div className="d-flex align-items-center">
-                        <StarFill size={14} color="#f59e0b" className="me-1" />
+                        {/* Ícone Star Corrigido */}
+                        <Star size={14} color="#f59e0b" fill="#f59e0b" className="me-1" />
                         <span className="fw-bold me-1 text-white">{rating}</span>
                         <span className="text-muted small">/ 5</span>
                     </div>
@@ -81,5 +84,4 @@ const ProfileCard = ({ professional }) => {
         </Card>
     );
 };
-
 export default ProfileCard;
