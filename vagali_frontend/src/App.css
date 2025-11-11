@@ -2,211 +2,229 @@
 /* VARIÁVEIS GLOBAIS */
 /* ========================================================== */
 :root {
-    --primary-color: #993213;        /* Marrom Principal (Vagali) */
-    --accent-color: #f59e0b;         /* Amarelo/Laranja de destaque */
-    --light-bg: #f8fafc;             /* Fundo claro padrão (se necessário) */
-    --dark-text: #1e293b;            /* Texto escuro */
-    --light-text: #64748b;           /* Texto claro (cinza) */
-    --header-bg: #202020;            /* Fundo Escuro para a página principal e Header */
-    --vagali-dark-card: #2b2b2b;     /* Fundo dos cards escuros (Auth/Perfil) */
-    --vagali-link: #4f46e5;          /* Cor de links e textos clicáveis */
-    --btn-success-color: #2E8B57;    /* Verde para botões de Cadastro */
-}
-
-/* 1. Estilos Globais e Reset */
-html, body, #root {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden; 
-}
-
-/* Garante que o corpo da página inteira tenha o fundo escuro */
-body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background-color: var(--header-bg); /* Fundo escuro */
-    color: var(--light-bg); /* Cor do texto padrão (claro) */
-    min-height: 100vh; 
-}
-.min-vh-100 {
-    min-height: 100vh;
-}
-
-/* 2. Estilos de Formulários e Componentes Comuns */
-.form-control:focus {
-    box-shadow: 0 0 0 0.25rem rgba(153, 50, 19, 0.25); 
-    border-color: var(--primary-color);
-}
-.img-slide {
-    width: 100%;
-    height: 400px; 
-    object-fit: cover; 
-}
-
-/* Estilos para o botão de categoria (Mantidos) */
-.categoria-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 1.2rem 0.5rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    height: 100%; 
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-.categoria-btn i {
-    font-size: 2rem;
-    color: var(--primary-color);
-    margin-bottom: 0.5rem;
-}
-.categoria-btn:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-    border-color: var(--accent-color);
-}
-
-/* Estilos de Cards de Perfil (Antigo/Descontinuado) */
-.card-perfil {
-    border-radius: 16px;
-    border: none;
-    transition: all 0.3s ease;
-    background: white;
-}
-.card-perfil:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important;
-}
-.perfil-img {
-    border: 3px solid var(--primary-color);
-}
-
-/* ========================================================== */
-/* 3. ESTILOS DO PROFILECARD (NOVO) */
-/* ========================================================== */
-
-.profile-card {
-    /* Altura mínima e efeito de hover */
-    min-height: 280px; 
-    transition: transform 0.2s, box-shadow 0.2s;
-    background-color: var(--vagali-dark-card) !important;
-    border-radius: 8px; 
-}
-
-.profile-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5) !important;
-}
-
-/* Estilo para as iniciais do avatar */
-.avatar-initials {
-    border: 2px solid var(--primary-color);
-}
-
-/* Classe de texto para garantir que ele apareça claro nos cards escuros e contenha a bio */
-.text-light-gray {
-    color: #ccc !important; 
-    /* Contém a bio em 3 linhas (webkit-box é necessário para -webkit-line-clamp) */
-    display: -webkit-box; 
-    -webkit-line-clamp: 3; 
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-/* ========================================================== */
-/* 4. ESTILO DA BARRA DE BUSCA (MainFeed) */
-/* ========================================================== */
-.form-control.search-input {
-    background-color: #404040; /* Fundo da barra de busca no tema escuro */
-    color: #ccc; /* Cor do texto digitado */
-    border: 1px solid #555;
-    transition: all 0.2s;
-}
-
-.form-control.search-input::placeholder {
-    color: #888; /* Cor do placeholder */
-}
-
-.form-control.search-input:focus {
-    box-shadow: 0 0 0 0.25rem rgba(153, 50, 19, 0.25); /* Sombra do foco na cor primária */
-    border-color: var(--primary-color);
-    background-color: #404040; 
-    color: #fff;
-}
+    --primary-color: #993213; /* Marrom Principal (Vagali) */
+    --accent-color: #f59e0b; /* Amarelo/Laranja de destaque */
+    --light-bg: #f8fafc; /* Fundo claro padrão (se necessário) */
+    --dark-text: #1e293b; /* Texto escuro */
+    --light-text: #64748b; /* Texto claro (cinza) */
+    --header-bg: #f1f5f9; /* Fundo Escuro para a página principal e Header */
+    --vagali-dark-card: #fffff; /* Fundo dos cards escuros (Auth/Perfil) */
+    --vagali-link: #4f46e5; /* Cor de links e textos clicáveis */
+    --btn-success-color: #2E8B57; /* Verde para botões de Cadastro */
+  }
+  
 
 
-/* ========================================================== */
-/* 5. Estilos de Autenticação (Dark Card) */
-/* ========================================================== */
-.auth-page-background {
-    background-color: #C0C0C0; 
-    width: 100%;
-}
-.bg-vagali-dark-card {
-    background-color: var(--vagali-dark-card) !important; /* Reforçado */
-    color: var(--light-bg);
-    border-radius: 10px;
-}
+
+
+/* Estilização para inputs em tema CLARO */
 .form-control-dark {
-    background-color: #404040;
-    border: 1px solid #555;
-    color: var(--light-bg);
+    background-color: var(--light-bg); /* Fundo claro */
+    border: 1px solid #ccc; /* Borda cinza suave */
+    color: var(--dark-text); /* Texto escuro */
 }
 .form-control-dark:focus {
-    background-color: #404040;
-    border-color: var(--primary-color);
-    color: var(--light-bg);
-    box-shadow: 0 0 0 0.25rem rgba(153, 50, 19, 0.25); 
-}
-.btn-custom-success {
-    background-color: var(--btn-success-color);
-    border-color: var(--btn-success-color);
-    color: white;
-}
-.btn-custom-danger {
-    background-color: #404040;
-    border-color: #404040;
-    color: white;
-}
-.text-vagali-link {
-    color: var(--vagali-link);
-    text-decoration: none;
+    background-color: var(--light-bg);
+    border-color: var(--primary-color);
+    color: var(--dark-text);
+    box-shadow: 0 0 0 0.25rem rgba(153, 50, 19, 0.25); 
 }
 
 
+/* Garante que o corpo use o fundo claro principal */
+body {
+    background-color: var(--light-bg);
+    color: var(--dark-text);
+}
 
-
-
-
-
-/* ========================================================== */
-/* ESTILO DO DROPDOWN DE CATEGORIA (CORREÇÃO) */
-/* ========================================================== */
-
-/* Garante que o wrapper do Dropdown ocupe todo o espaço */
-.categoria-toggle-wrapper {
-    /* Remove o estilo padrão do Bootstrap que atrapalha o layout */
-    padding: 0; 
+  /* 1. Estilos Globais e Reset */
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+  
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background-color: var(--header-bg);
+    color: var(--light-bg);
+    min-height: 100vh;
+  }
+  
+  .min-vh-100 {
+    min-height: 100vh;
+  }
+  
+  /* 2. Estilos de Formulários e Componentes Comuns */
+  .form-control:focus {
+    box-shadow: 0 0 0 0.25rem rgba(153, 50, 19, 0.25);
+    border-color: var(--primary-color);
+  }
+  
+  .img-slide {
+    width: 100%;
+    height: 400px;
+    object-fit: cover;
+  }
+  
+  .categoria-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.2rem 0.5rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    height: 100%;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  
+  .categoria-btn i {
+    font-size: 2rem;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+  }
+  
+  .categoria-btn:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    border-color: var(--accent-color);
+  }
+  
+  /* Cards de Perfil */
+  .card-perfil {
+    border-radius: 16px;
+    border: none;
+    transition: all 0.3s ease;
+    background: white;
+  }
+  
+  .card-perfil:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important;
+  }
+  
+  .perfil-img {
+    border: 3px solid var(--primary-color);
+  }
+  
+  /* ========================================================== */
+  /* 3. ProfileCard */
+  /* ========================================================== */
+  .profile-card {
+    min-height: 280px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    background-color: var(--vagali-dark-card) !important;
+    border-radius: 8px;
+  }
+  
+  .profile-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5) !important;
+  }
+  
+  .avatar-initials {
+    border: 2px solid var(--primary-color);
+  }
+  
+  .text-light-gray {
+    color: #ccc !important;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  /* ========================================================== */
+  /* 4. Barra de Busca */
+  /* ========================================================== */
+  .form-control.search-input {
+    background-color: #404040;
+    color: #ccc;
+    border: 1px solid #555;
+    transition: all 0.2s;
+  }
+  
+  .form-control.search-input::placeholder {
+    color: #888;
+  }
+  
+  .form-control.search-input:focus {
+    box-shadow: 0 0 0 0.25rem rgba(153, 50, 19, 0.25);
+    border-color: var(--primary-color);
+    background-color: #404040;
+    color: #fff;
+  }
+  
+  /* ========================================================== */
+  /* 5. Autenticação */
+  /* ========================================================== */
+  .auth-page-background {
+    background-color: #C0C0C0;
+    width: 100%;
+  }
+  
+  .bg-vagali-dark-card {
+    background-color: var(--vagali-dark-card) !important;
+    color: var(--light-bg);
+    border-radius: 10px;
+  }
+  
+  .form-control-dark {
+    background-color: #404040;
+    border: 1px solid #555;
+    color: var(--light-bg);
+  }
+  
+  .form-control-dark:focus {
+    background-color: #404040;
+    border-color: var(--primary-color);
+    color: var(--light-bg);
+    box-shadow: 0 0 0 0.25rem rgba(153, 50, 19, 0.25);
+  }
+  
+  .btn-custom-success {
+    background-color: var(--btn-success-color);
+    border-color: var(--btn-success-color);
+    color: white;
+  }
+  
+  .btn-custom-danger {
+    background-color: #404040;
+    border-color: #404040;
+    color: white;
+  }
+  
+  .text-vagali-link {
+    color: var(--vagali-link);
+    text-decoration: none;
+  }
+  
+  /* ========================================================== */
+  /* Dropdown de Categoria */
+  /* ========================================================== */
+  .categoria-toggle-wrapper {
+    padding: 0;
     border: none;
     background-color: transparent;
     cursor: pointer;
     height: 100%;
-}
-
-/* Garante que o botão de categoria dentro do toggle ocupe 100% */
-.categoria-toggle-wrapper > .categoria-btn {
+  }
+  
+  .categoria-toggle-wrapper > .categoria-btn {
     width: 100%;
-}
-
-/* Garante que o item do dropdown fique com texto claro */
-.dropdown-menu .dropdown-item {
+  }
+  
+  .dropdown-menu .dropdown-item {
     color: white !important;
-}
-.dropdown-menu .dropdown-item:hover {
+  }
+  
+  .dropdown-menu .dropdown-item:hover {
     background-color: var(--primary-color) !important;
-}
+  }
