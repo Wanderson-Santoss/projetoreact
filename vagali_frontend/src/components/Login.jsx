@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
-import { BoxArrowInRight } from 'react-bootstrap-icons';
-// 🚨 IMPORTAÇÃO CRÍTICA: Use a função global de configuração
-import { setAuthToken } from '../config/axiosConfig'; 
+// Importação do useAuth
+import { useAuth } from '../components/AuthContext'; 
 
 const Login = () => {
     const navigate = useNavigate();
+    // 🚨 Chave essencial: Importar a função login do contexto
+    const { login, isAuthenticated } = useAuth(); 
+
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -16,15 +18,13 @@ const Login = () => {
     // Endpoint de login (Djoser/authtoken)
     const LOGIN_URL = '/api/v1/auth/login/'; 
 
-    // Efeito para verificar se o usuário já está logado
+    // Efeito para verificar se o usuário já está logado no contexto
     useEffect(() => {
-        const token = localStorage.getItem('userToken');
-        if (token) {
-            // Se já está logado, redireciona. 
-            // A configuração do token no Axios já deve ter ocorrido no App.jsx.
+        if (isAuthenticated) {
+            // Se já está logado (estado no contexto), redireciona. 
             navigate('/meu-perfil'); 
         }
-    }, [navigate]);
+    }, [navigate, isAuthenticated]); // Depende do estado do Contexto
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -32,80 +32,60 @@ const Login = () => {
         setLoading(true);
 
         try {
-            // Enviar o e-mail no campo 'username'
-            const response = await axios.post(LOGIN_URL, {
-                username: email,
-                password: password
-            });
-
-            // Lógica para extrair o token da chave 'key' (padrão rest_framework.authtoken)
-            const token = response.data.key || response.data.auth_token || response.data.token;
+            // 🚨 MUDANÇA CRUCIAL: Substituir a lógica de Axios e localStorage.setItem 
+            // pela chamada centralizada ao login do AuthContext.
             
-            if (token) {
-                // 1. Salva o token no armazenamento local
-                localStorage.setItem('userToken', token);
-                
-                // 2. 🚨 DEFINE O TOKEN GLOBALMENTE NO AXIOS (ESSENCIAL PARA O 401)
-                setAuthToken(token);
-                
-                // 3. Redireciona para a rota protegida
-                console.log("Autenticação bem-sucedida. Redirecionando...");
+            // Opcional: Se a função login real usar axios, você pode fazer a chamada aqui
+            // e passar os dados para o login do AuthContext. No entanto, o ideal 
+            // é que o AuthContext faça a chamada. Vamos usar a função login do AuthContext:
+
+            const success = await login(email, password); // Chama a função no Contexto
+
+            if (success) {
+                // O AuthContext.login já fará o setUser, que re-renderiza o Header.
+                // O Header agora mudará imediatamente, e o useEffect acima 
+                // garantirá o redirecionamento.
                 navigate('/meu-perfil'); 
-                
             } else {
-                // Token não encontrado na resposta 200
-                setError("O servidor retornou sucesso, mas o token de autenticação não foi encontrado na resposta.");
+                // Caso a API retorne erro, mas a chamada tenha sucesso
+                setError("Erro desconhecido ao autenticar. Tente novamente.");
             }
 
         } catch (err) {
-            // Tratamento de erro (ex: 400 Bad Request)
-            console.error("Erro no login:", err.response || err);
-            
-            let errorMessage = "Falha na comunicação com o servidor.";
-
-            if (err.response && err.response.status === 400) {
-                 errorMessage = "Credenciais inválidas. Verifique seu e-mail e senha.";
-            } else if (err.response && err.response.data && err.response.data.non_field_errors) {
-                errorMessage = err.response.data.non_field_errors.join(' ');
-            } else if (err.message === 'Network Error') {
-                errorMessage = 'Erro de rede. Verifique sua conexão ou se o servidor está online.';
-            }
-            
-            setError(errorMessage);
-
+            // Tratamento de erros de rede ou resposta da API
+            const message = err.response?.data?.detail || "Credenciais inválidas. Tente novamente.";
+            setError(message);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <Container className="d-flex align-items-center justify-content-center py-5" style={{ minHeight: '100vh' }}>
-            <Card className="bg-vagali-dark-card p-4 shadow-lg" style={{ width: '450px' }}>
-                <h2 className="text-center mb-4 text-white fw-bold">
-                    <BoxArrowInRight className="me-2 text-primary" /> Acesso
-                </h2>
+        <Container fluid className="d-flex align-items-center justify-content-center min-vh-100 bg-dark py-5">
+            <Card className="p-4 shadow-lg text-white" style={{ maxWidth: '400px', width: '100%', backgroundColor: '#343a40', border: '1px solid #ffc107' }}>
+                <h2 className="text-center mb-4 fw-bold text-warning">Entrar no VagALI</h2>
 
-                {/* Exibe o erro se houver */}
-                {error && <Alert variant="danger">{error}</Alert>}
+                {error && (
+                    <Alert variant="danger" className="p-2 small mt-2">
+                        {error}
+                    </Alert>
+                )}
 
                 <Form onSubmit={handleSubmit}>
-                    
-                    {/* E-MAIL */}
-                    <Form.Group className="mb-3">
-                        <Form.Label className="text-white-50">E-mail:</Form.Label>
+                    <Form.Group className="mb-3" controlId="email">
+                        <Form.Label className="small">E-mail:</Form.Label>
                         <Form.Control 
                             type="email" 
                             className="form-control-dark" 
-                            placeholder="Seu e-mail de cadastro"
+                            placeholder="seu.email@exemplo.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required
                         />
                     </Form.Group>
 
-                    {/* SENHA */}
-                    <Form.Group className="mb-4">
-                        <Form.Label className="text-white-50">Senha:</Form.Label>
+                    <Form.Group className="mb-3" controlId="password">
+                        <Form.Label className="small">Senha:</Form.Label>
                         <Form.Control 
                             type="password" 
                             className="form-control-dark" 
@@ -118,7 +98,7 @@ const Login = () => {
                     
                     {/* LINK ESQUECEU A SENHA */}
                     <div className="d-flex justify-content-end mb-3">
-                        <Link to="/forgot-password" className="text-vagali-link small">
+                        <Link to="/forgot-password" className="text-vagali-link small text-warning">
                             Esqueceu sua senha?
                         </Link>
                     </div>
@@ -127,7 +107,7 @@ const Login = () => {
                     <Button 
                         type="submit" 
                         className="w-100 fw-bold py-2"
-                        variant="primary" 
+                        variant="warning" 
                         disabled={loading}
                     >
                         {loading ? <Spinner animation="border" size="sm" /> : 'Entrar'}
@@ -135,7 +115,7 @@ const Login = () => {
                 </Form>
 
                 <p className="text-center small text-white-50 mt-4">
-                    Ainda não tem conta? <Link to="/register" className="text-vagali-link">Cadastre-se aqui</Link>
+                    Ainda não tem conta? <Link to="/register" className="text-vagali-link text-warning">Cadastre-se aqui</Link>
                 </p>
             </Card>
         </Container>

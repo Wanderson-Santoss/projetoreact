@@ -8,7 +8,7 @@
     --dark-text: #1e293b; /* Texto escuro */
     --light-text: #64748b; /* Texto claro (cinza) */
     --header-bg: #f1f5f9; /* Fundo Escuro para a página principal e Header */
-    --vagali-dark-card: #fffff; /* Fundo dos cards escuros (Auth/Perfil) */
+    --vagali-dark-card: #ffffff; /* Fundo dos cards escuros (Auth/Perfil) */
     --vagali-link: #4f46e5; /* Cor de links e textos clicáveis */
     --btn-success-color: #2E8B57; /* Verde para botões de Cadastro */
   }

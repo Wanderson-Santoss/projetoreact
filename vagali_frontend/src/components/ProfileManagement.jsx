@@ -1,479 +1,350 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Container, Card, Form, Button, Alert, Spinner, Row, Col } from 'react-bootstrap';
-// Importação de novos ícones Lucide: DollarSign e Trash2
-import { User, Pencil, LogOut, Camera, MapPin, Zap, ListChecks, Wrench, HandCoins, Send, DollarSign, Trash2 } from 'lucide-react'; 
-import axios from 'axios';
+import React, { useState, useCallback } from 'react'; 
+import { Container, Row, Col, Card, Button, Form, Alert, Spinner, Collapse } from 'react-bootstrap'; 
+import { Link, useNavigate } from 'react-router-dom'; 
+import axios from 'axios'; 
+// Ícones Lucide: Adicionado MessageSquare, LogOut, ChevronDown, ChevronUp
+import { Briefcase, User, Repeat, Settings, ListChecks, MapPin, Camera, Heart, ChevronDown, ChevronUp, MessageSquare, LogOut } from 'lucide-react'; 
 
-// --- Variáveis de Configuração ---
-const ME_URL = '/api/v1/accounts/me/'; 
-const DEMANDS_API_URL = '/api/v1/demandas/'; 
-const SERVICES_API_URL = '/api/v1/servicos/'; 
+import MyDemandsSection from './MyDemandsSection'; 
+import { useAuth } from './AuthContext'; // Certifique-se de que este caminho está correto
 
-// Mapeamento de nomes de serviço para ícones (Mantenha a consistência)
-const CATEGORY_ICON_MAP = {
-    'Eletricidade': Zap,
-    'Pintura': Wrench,
-    'Hidráulica': HandCoins, 
-    'Outros': Send,
-    'Limpeza': Wrench,
-};
+const VIACEP_URL = 'https://viacep.com.br/ws/';
+const DEFAULT_AVATAR = 'https://via.placeholder.com/150/007bff/ffffff?text=FOTO';
 
-// ----------------------------------------------------------------------
-// COMPONENTE AUXILIAR: SEÇÃO DE DEMANDAS (ATUALIZADO PARA EDIÇÃO/EXCLUSÃO/LAYOUT)
-// ----------------------------------------------------------------------
-const MyDemandsSection = ({ profileData, onNewDemandClick, demands, loadingDemands, onEdit, onDelete }) => {
-    const isClient = !profileData.is_professional;
-    
-    // Formatação de moeda
-    const formatCurrency = (value) => {
-        if (value === null || value === undefined) return 'Aguardando Oferta';
-        return new Intl.NumberFormat('pt-BR', {
-            style: 'currency',
-            currency: 'BRL',
-        }).format(value);
-    };
+const ProfileManagement = () => {
+    
+    // ESTADOS DE CONTROLE DE COLAPSO
+    const [isInfoCollapsed, setIsInfoCollapsed] = useState(false); 
 
-    // Mapeia o nome do serviço (service_name) para um ícone Lucide
-    const getIconForCategory = (serviceName) => {
-        const IconComponent = CATEGORY_ICON_MAP[serviceName] || ListChecks;
-        return <IconComponent className="me-2" size={18} />;
-    };
+    // ESTADO DE AUTENTICAÇÃO E DADOS
+    const { 
+        userRole, 
+        setUserRole, 
+        isUserProfessional, 
+        userId,
+        logout // Função de logout obtida do contexto
+    } = useAuth(); 
 
-    if (!isClient) return null;
+    // ESTADO DO FORMULÁRIO
+    const [profileData, setProfileData] = useState({
+        fullName: "Usuário Teste Vagali", email: "teste@vagali.com", phone: "(99) 99999-9999",
+        profilePictureUrl: DEFAULT_AVATAR, 
+        cep: "20000000", street: "Rua do Teste", number: "100", complement: "Apto 101", 
+        neighborhood: "Centro", city: "Rio de Janeiro", state: "RJ", 
+    });
+    
+    const [isSaving, setIsSaving] = useState(false);
+    const [cepLoading, setCepLoading] = useState(false);
+    const [cepError, setCepError] = useState(null);
 
-    return (
-        <Card className="mt-5 bg-vagali-dark-card p-4 shadow-lg border-primary border">
-            <h3 className="text-primary mb-3 d-flex align-items-center">
-                <ListChecks className="me-2" /> Minhas Demandas
-            </h3>
-            
-            <div className="d-grid gap-2 mb-3">
-                 <Button 
-                    variant="warning"
-                    onClick={onNewDemandClick}
-                    className="fw-bold py-2"
-                    style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b' }}
-                >
-                    + Criar Nova Demanda
-                </Button>
-            </div>
-            
-            {loadingDemands ? (
-                <div className="text-center py-4">
-                    <Spinner animation="border" variant="warning" size="sm" />
-                    <p className="text-white-50 mt-2">Carregando suas demandas...</p>
-                </div>
-            ) : demands.length === 0 ? (
-                <Alert variant="info" className="text-center">
-                    Você ainda não possui nenhuma demanda cadastrada.
-                </Alert>
-            ) : (
-                <div className="space-y-3">
-                    {demands.map(demand => {
-                        const isPendente = demand.status === 'pendente';
-                        const statusDisplay = demand.status.charAt(0).toUpperCase() + demand.status.slice(1).replace('_', ' ');
-
-                        return (
-                            <Card 
-                                key={demand.id} 
-                                className="bg-vagali-card-demand border-secondary mb-3" 
-                            >
-                                <Card.Body>
-                                    <div className="d-flex justify-content-between align-items-start mb-2">
-                                        
-                                        {/* TÍTULO E DESCRIÇÃO */}
-                                        <div>
-                                            <Card.Title className="text-white fs-6 mb-1 d-flex align-items-center">
-                                                {getIconForCategory(demand.service_name)} **{demand.titulo}**
-                                            </Card.Title>
-                                            <p className="small text-white-75 mb-1 ms-4 ps-1">
-                                                {demand.descricao.substring(0, 80)}{demand.descricao.length > 80 ? '...' : ''}
-                                            </p>
-                                        </div>
-                                        
-                                        {/* STATUS */}
-                                        <span 
-                                            className={`badge ${isPendente ? 'bg-info' : demand.status === 'concluida' ? 'bg-success' : 'bg-primary'} fw-bold flex-shrink-0`}
-                                        >
-                                            {statusDisplay}
-                                        </span>
-                                    </div>
-                                    
-                                    {/* DETALHES E VALOR */}
-                                    <Row className="align-items-center pt-2 border-top border-secondary-subtle">
-                                        <Col xs={12} md={6} className="text-white-50 small mb-2 mb-md-0 d-flex align-items-center">
-                                            <MapPin size={14} className="me-1" /> CEP: <span className="text-info fw-bold">{demand.cep || 'Não informado'}</span>
-                                        </Col>
-                                        
-                                        {/* VALOR (NOVO CAMPO) */}
-                                        <Col xs={12} md={6} className="text-end mb-2 mb-md-0">
-                                            <span className="text-warning fw-bold d-flex align-items-center justify-content-end">
-                                                <DollarSign size={16} className="me-1" />
-                                                Valor: {formatCurrency(demand.accepted_offer_value)}
-                                            </span>
-                                        </Col>
-                                    </Row>
-                                    
-                                    {/* BOTÕES DE EDIÇÃO/EXCLUSÃO (APENAS SE 'PENDENTE') */}
-                                    {isPendente && (
-                                        <div className="d-flex justify-content-end gap-2 mt-3 border-top border-secondary-subtle pt-3">
-                                            <Button 
-                                                variant="outline-warning" 
-                                                size="sm"
-                                                onClick={() => onEdit(demand.id)} // Chama a função de edição
-                                                disabled={loadingDemands}
-                                            >
-                                                <Pencil size={14} className="me-1" /> Editar
-                                            </Button>
-                                            <Button 
-                                                variant="outline-danger" 
-                                                size="sm"
-                                                onClick={() => onDelete(demand.id)} // Chama a função de exclusão
-                                                disabled={loadingDemands}
-                                            >
-                                                <Trash2 size={14} className="me-1" /> Excluir
-                                            </Button>
-                                        </div>
-                                    )}
-                                </Card.Body>
-                            </Card>
-                        );
-                    })}
-                </div>
-            )}
-        </Card>
-    );
-};
-
-// ----------------------------------------------------------------------
-// COMPONENTE PRINCIPAL: GERENCIAMENTO DE PERFIL
-// ----------------------------------------------------------------------
-function ProfileManagement() {
-    // Estado inicial com todos os campos, incluindo os novos
-    const [profileData, setProfileData] = useState({
-        full_name: '', email: '', cpf: '', phone_number: '', is_professional: false,
-        bio: '', address: '', cnpj: '', palavras_chave: '',
-        cep: '', 
-        profile_picture_url: null,
-    });
-    const [demands, setDemands] = useState([]); 
-    const [loadingDemands, setLoadingDemands] = useState(false); 
-    const [isEditing, setIsEditing] = useState(false);
-    const [error, setError] = useState(null);
-    const [successMessage, setSuccessMessage] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [isSaving, setIsSaving] = useState(false);
-    
-    const navigate = useNavigate();
-    const userToken = localStorage.getItem('userToken'); 
-
-    // --- FUNÇÕES DE AÇÃO DE DEMANDA ---
-
-    // Função para redirecionar para o formulário de demanda
-    const handleNewDemandClick = useCallback(() => {
-        navigate('/criar-demanda'); 
-    }, [navigate]);
-
-    // Função para EXCLUIR demanda
-    const handleDeleteDemand = async (demandId) => {
-        if (!window.confirm("Tem certeza que deseja EXCLUIR esta demanda? Esta ação não pode ser desfeita.")) {
+    // LÓGICA DE BUSCA DO CEP
+    const fetchAddressByCep = useCallback(async (cep) => {
+        const cleanedCep = cep.replace(/\D/g, '');
+        if (cleanedCep.length !== 8) {
+            setCepError(null);
             return;
         }
-
-        setError(null);
-        setSuccessMessage(null);
-        
+        setCepLoading(true);
+        setCepError(null);
         try {
-            await axios.delete(`${DEMANDS_API_URL}${demandId}/`, {
-                headers: { 'Authorization': `Bearer ${userToken}` },
-            });
-            
-            setSuccessMessage(`Demanda #${demandId} excluída com sucesso!`);
-            // Atualiza a lista removendo a demanda excluída
-            setDemands(prev => prev.filter(d => d.id !== demandId));
+            const response = await axios.get(`${VIACEP_URL}${cleanedCep}/json/`);
+            const data = response.data;
+            if (data.erro) {
+                setCepError("CEP não encontrado.");
+                setProfileData(prev => ({ ...prev, street: '', neighborhood: '', city: '', state: '', }));
+            } else {
+                setProfileData(prev => ({
+                    ...prev,
+                    street: data.logradouro || '',
+                    neighborhood: data.bairro || '',
+                    city: data.localidade || '',
+                    state: data.uf || '',
+                }));
+            }
+        } catch (error) {
+            setCepError("Erro ao buscar CEP. Tente novamente.");
+        } finally {
+            setCepLoading(false);
+        }
+    }, []);
 
-        } catch (err) {
-            console.error("Erro ao excluir demanda:", err.response || err);
-            const errorMsg = err.response?.data?.detail || "Não foi possível excluir. Verifique se o status é 'Pendente'.";
-            setError(errorMsg);
+    // HANDLERS DE INPUT
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setProfileData(prev => ({ ...prev, [name]: value, }));
+
+        if (name === 'cep') {
+            if (value.replace(/\D/g, '').length === 8) {
+                fetchAddressByCep(value);
+            }
         }
     };
     
-    // Função para REDIRECIONAR PARA EDIÇÃO
-    const handleEditDemand = (demandId) => {
-        // Assume que você terá uma rota '/editar-demanda/:id'
-        navigate(`/editar-demanda/${demandId}`); 
+    // HANDLER: Upload de Foto
+    const handlePictureUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const newUrl = URL.createObjectURL(file);
+            setProfileData(prev => ({ ...prev, profilePictureUrl: newUrl }));
+            alert("Foto de perfil selecionada. Lembre-se de salvar o perfil!");
+        }
+    };
+
+    // HANDLER DE SUBMISSÃO (Simulação)
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        setCepError(null); 
+        
+        setTimeout(() => {
+            setIsSaving(false);
+            console.log("Dados salvos:", profileData);
+            alert("Perfil atualizado com sucesso!");
+        }, 1500);
+    };
+
+    // FUNÇÃO DE LOGOUT
+    const handleLogout = () => {
+        if (typeof logout === 'function') {
+            logout(); // Chama a função de logout do AuthContext
+        } else {
+            console.error("Função de logout não está disponível no AuthContext.");
+        }
+    };
+
+    // FUNÇÕES DE CONTEXTO (TOGGLE ROLE)
+    const toggleRole = () => {
+        const newRole = userRole === 'Profissional' ? 'Cliente' : 'Profissional';
+        if (typeof setUserRole !== 'function') {
+            console.error("ERRO CRÍTICO: A função setUserRole não está disponível no contexto.");
+            return; 
+        }
+        setUserRole(newRole); 
     };
     
-    // --- FUNÇÕES DE PERFIL ---
+    const nextRole = userRole === 'Profissional' ? 'Cliente' : 'Profissional';
+    const currentRoleIcon = isUserProfessional ? <Briefcase size={20} className="me-2" /> : <User size={20} className="me-2" />;
 
-    const handleToggleEdit = () => {
-         setIsEditing(prev => !prev);
-         setError(null);
-         setSuccessMessage(null);
-    };
+    return (
+        <Container className="my-5">
+            <h1 className="mb-4 d-flex align-items-center" style={{ color: 'var(--primary-color)' }}>
+                <Settings size={32} className="me-2" /> Gerenciamento de Perfil
+            </h1>
+            
+            <Row>
+                <Col md={8}>
+                    
+                    {/* CARD DE FOTO DE PERFIL */}
+                    <Card className="shadow-sm mb-4">
+                        <Card.Body className="d-flex align-items-center">
+                            <img 
+                                src={profileData.profilePictureUrl} 
+                                alt="Foto de Perfil"
+                                className="rounded-circle me-4"
+                                style={{ width: '80px', height: '80px', objectFit: 'cover', border: '2px solid #007bff' }}
+                            />
+                            <div>
+                                <h5 className="mb-1">{profileData.fullName}</h5>
+                                <label htmlFor="profile-picture-upload" className="btn btn-outline-primary btn-sm mt-1">
+                                    <Camera size={16} className="me-1" /> Alterar Foto
+                                </label>
+                                <input 
+                                    type="file" id="profile-picture-upload" accept="image/*" 
+                                    onChange={handlePictureUpload} style={{ display: 'none' }} 
+                                />
+                            </div>
+                        </Card.Body>
+                    </Card>
 
-    // FUNÇÃO PARA BUSCAR AS DEMANDAS DO USUÁRIO CLIENTE
-    const fetchDemands = useCallback(async (isProfessional) => {
-        if (!userToken || isProfessional) return; 
+                    {/* CARD DE INFORMAÇÕES BÁSICAS - COM COLAPSO */}
+                    <Card className="shadow-sm mb-4">
+                        {/* HEADER COM BOTÃO DE COLAPSO */}
+                        <Card.Header 
+                            className="fw-bold bg-light d-flex justify-content-between align-items-center" 
+                            style={{ color: 'var(--dark-text)', cursor: 'pointer' }}
+                            onClick={() => setIsInfoCollapsed(!isInfoCollapsed)}
+                            aria-controls="info-collapse-body"
+                            aria-expanded={!isInfoCollapsed}
+                        >
+                            Informações da Conta e Endereço
+                            {isInfoCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+                        </Card.Header>
+                        
+                        {/* CORPO DO CARD WRAPADO PELO COLLAPSE */}
+                        <Collapse in={!isInfoCollapsed}>
+                            <div id="info-collapse-body">
+                                <Card.Body>
+                                    <Form onSubmit={handleSubmit}>
+                                        
+                                        {/* DADOS PESSOAIS */}
+                                        <h5 className="mb-3 text-muted">Dados Pessoais</h5>
+                                        <Row className="mb-3">
+                                            <Col md={6}>
+                                                <Form.Label>Nome Completo</Form.Label>
+                                                <Form.Control type="text" name="fullName" value={profileData.fullName} onChange={handleChange} required />
+                                            </Col>
+                                            <Col md={6}>
+                                                <Form.Label>Email</Form.Label>
+                                                <div className="d-flex flex-column">
+                                                    <Form.Control readOnly plaintext value={profileData.email} className="fw-bold" />
+                                                    <small className="text-danger mt-1">
+                                                        Este é seu login principal e não pode ser alterado.
+                                                    </small>
+                                                </div>
+                                            </Col>
+                                        </Row>
+                                        <Form.Group className="mb-4">
+                                            <Form.Label>Telefone</Form.Label>
+                                            <Form.Control type="text" name="phone" value={profileData.phone} onChange={handleChange} />
+                                        </Form.Group>
 
-        setLoadingDemands(true);
-        try {
-            const response = await axios.get(DEMANDS_API_URL, {
-                headers: { 'Authorization': `Bearer ${userToken}` },
-            });
-            setDemands(response.data); 
-        } catch (err) {
-            console.error("Erro ao carregar demandas:", err.response || err);
-            if (err.response && err.response.status === 401) {
-                 setError("Sessão expirada. Redirecionando para login.");
-                 localStorage.removeItem('userToken'); 
-                 navigate('/login');
-            }
-        } finally {
-            setLoadingDemands(false);
-        }
-    }, [userToken, navigate]); 
+                                        {/* DADOS DE ENDEREÇO */}
+                                        <hr />
+                                        <h5 className="mb-3 text-muted d-flex align-items-center"><MapPin size={20} className="me-2"/> Endereço</h5>
 
-    // --- EFEITO PRINCIPAL DE CARREGAMENTO (Perfil + Demandas) ---
-    useEffect(() => {
-        const fetchProfileAndDemands = async () => {
-            setLoading(true);
+                                        <Row className="mb-3">
+                                            <Col md={4}>
+                                                <Form.Label>CEP</Form.Label>
+                                                <Form.Control 
+                                                    type="text" name="cep" value={profileData.cep} onChange={handleChange} maxLength={9} placeholder="Ex: 00000-000" required 
+                                                />
+                                            </Col>
+                                            <Col md={8} className="d-flex align-items-end">
+                                                {cepLoading && <Spinner animation="border" size="sm" className="me-2 text-primary" />}
+                                                {cepError && <Alert variant="danger" className="py-1 px-2 small m-0">{cepError}</Alert>}
+                                            </Col>
+                                        </Row>
+                                        
+                                        <Row className="mb-3">
+                                            <Col md={8}>
+                                                <Form.Label>Rua/Avenida (Logradouro)</Form.Label>
+                                                <Form.Control type="text" name="street" value={profileData.street} onChange={handleChange} disabled={cepLoading} required />
+                                            </Col>
+                                            <Col md={4}>
+                                                <Form.Label>Bairro</Form.Label>
+                                                <Form.Control type="text" name="neighborhood" value={profileData.neighborhood} onChange={handleChange} disabled={cepLoading} required />
+                                            </Col>
+                                        </Row>
 
-            if (!userToken) {
-                navigate('/login');
-                setLoading(false);
-                return;
-            }
-            
-            try {
-                // CHAMADA REAL PARA BUSCAR O PERFIL (Substitua esta simulação)
-                // const profileResponse = await axios.get(ME_URL, { headers: { 'Authorization': `Bearer ${userToken}` } });
-                // const mockData = profileResponse.data;
-                
-                await new Promise(resolve => setTimeout(resolve, 500));
-                const mockData = {
-                    full_name: 'Usuário Teste Vagali', email: 'sab@gmail.com',
-                    is_professional: false, 
-                    cpf: '123.456.789-00', phone_number: '(99) 99999-9999',
-                    profile: { bio: '...', address: 'São Gonçalo, RJ', cep: '24400-000', cnpj: '', palavras_chave: [] },
-                };
+                                        <Row className="mb-3">
+                                            <Col md={4}>
+                                                <Form.Label>Cidade</Form.Label>
+                                                <Form.Control type="text" name="city" value={profileData.city} onChange={handleChange} disabled={cepLoading} required />
+                                            </Col>
+                                            <Col md={2}>
+                                                <Form.Label>Estado (UF)</Form.Label>
+                                                <Form.Control type="text" name="state" value={profileData.state} onChange={handleChange} disabled={cepLoading} maxLength={2} required />
+                                            </Col>
+                                            <Col md={3}>
+                                                <Form.Label>Número</Form.Label> {/* 🎯 CORREÇÃO: Certificando que a tag de fechamento é </Form.Label> na próxima linha */}
+                                                <Form.Control type="text" name="number" value={profileData.number} onChange={handleChange} placeholder="Obrigatório" required />
+                                            </Col>
+                                            <Col md={3}>
+                                                <Form.Label>Complemento (Opcional)</Form.Label>
+                                                <Form.Control type="text" name="complement" value={profileData.complement} onChange={handleChange} placeholder="Apto/Bloco" />
+                                            </Col>
+                                        </Row>
 
-                const mappedData = {
-                    ...mockData,
-                    ...mockData.profile,
-                    palavras_chave: mockData.profile?.palavras_chave.join(', ') || '',
-                };
-                setProfileData(mappedData);
-                
-                if (!mockData.is_professional) {
-                    // Passa o status de profissional para o fetchDemands
-                    await fetchDemands(mockData.is_professional); 
-                }
+                                        <Button variant="success" type="submit" disabled={isSaving || cepLoading}>
+                                            {isSaving ? <Spinner animation="border" size="sm" /> : 'Salvar Alterações'}
+                                        </Button>
+                                    </Form>
+                                </Card.Body>
+                            </div>
+                        </Collapse>
+                    </Card>
 
-            } catch (err) {
-                console.error("Erro ao carregar perfil:", err.response || err);
-                
-                if (err.response && err.response.status === 401) {
-                    setError("Sessão expirada. Faça login novamente.");
-                    localStorage.removeItem('userToken'); 
-                    navigate('/login');
-                    return;
-                }
+                    {/* SEÇÃO DE DEMANDAS (SÓ PARA CLIENTES) */}
+                    {!isUserProfessional && (
+                        <MyDemandsSection />
+                    )}
 
-                setError("Erro ao carregar o perfil. Tente novamente.");
-            } finally {
-                setLoading(false);
-            }
-        };
+                    {/* CARD DE CONFIGURAÇÕES DE PROFISSIONAL (SÓ PARA PROFISSIONAIS) */}
+                    {isUserProfessional && (
+                        <Card className="shadow-sm mb-4 border-success">
+                            <Card.Header className="fw-bold bg-success text-white">
+                                Configurações de Profissional
+                            </Card.Header>
+                            <Card.Body>
+                                <p>Gerencie suas especialidades, preços e disponibilidade.</p>
+                                <Button as={Link} to={`/professional/${userId}`} variant="outline-success" className="me-2">
+                                    Editar Portfólio
+                                </Button>
+                                <Button as={Link} to={`/professional/${userId}/schedule`} variant="outline-success">
+                                    Gerenciar Agenda
+                                </Button>
+                            </Card.Body>
+                        </Card>
+                    )}
+                    
+                </Col>
 
-        fetchProfileAndDemands();
-    }, [navigate, userToken, fetchDemands]); 
+                {/* COLUNA DE CONTROLES (DIREITA) */}
+                <Col md={4}>
+                    {/* CARD DE PAPEL ATUAL E CONTROLE DE TESTE */}
+                    <Card className="shadow-lg mb-4 text-center">
+                        <Card.Body>
+                            <h5 className="mb-3">Seu Papel Atual:</h5>
+                            <Alert variant={isUserProfessional ? "info" : "warning"} className="fw-bold d-flex justify-content-center align-items-center">
+                                {currentRoleIcon} {userRole}
+                            </Alert>
+                            <p className="small text-muted">Use este controle para simular a mudança de papel do usuário.</p>
+                            <Button variant="primary" className="w-100 mt-2 fw-bold d-flex justify-content-center align-items-center" onClick={toggleRole}>
+                                <Repeat size={18} className="me-2" />
+                                Mudar para: {nextRole}
+                            </Button>
+                        </Card.Body>
+                    </Card>
+                    
+                    {/* CARD DE PROFISSIONAIS SEGUIDOS (SÓ PARA CLIENTES) */}
+                    {!isUserProfessional && (
+                        <Card className="shadow-sm mb-4 border-info">
+                            <Card.Body className="d-grid gap-2">
+                                <Button as={Link} to="/profissionais-seguidos" variant="outline-info" className="fw-bold">
+                                    <Heart size={20} className="me-2" /> Profissionais Seguidos
+                                </Button>
+                            </Card.Body>
+                        </Card>
+                    )}
 
-    const handleChange = (e) => {
-        const { id, value } = e.target;
-        setProfileData(prev => ({ ...prev, [id]: value }));
-        setSuccessMessage(null);
-    };
+                    {/* NOVO: CARD DE MENSAGENS / CHAT */}
+                    <Card className="shadow-lg mb-4 border-success">
+                        <Card.Body className="d-grid gap-2">
+                            <Button 
+                                as={Link} 
+                                to="/chat" 
+                                variant="success" 
+                                className="fw-bold"
+                            >
+                                <MessageSquare size={20} className="me-2" /> Minhas Mensagens
+                            </Button>
+                        </Card.Body>
+                    </Card>
 
-    const handleSave = async (e) => {
-        e.preventDefault();
-        setError(null);
-        setIsSaving(true);
-        
-        const dataToSend = {
-             // ... (Corpo da requisição de salvar perfil)
-        };
+                    {/* CARD DE SEGURANÇA */}
+                    <Card className="shadow-sm mb-4">
+                        <Card.Header className="fw-bold bg-light" style={{ color: 'var(--dark-text)' }}>
+                            Segurança
+                        </Card.Header>
+                        <Card.Body className="d-grid gap-2">
+                            <Button as={Link} to="/change-password" variant="danger" className="w-100">
+                                Mudar Senha
+                            </Button>
+                            {/* BOTÃO SAIR CORRIGIDO */}
+                            <Button 
+                                variant="outline-danger" 
+                                className="w-100 d-flex justify-content-center align-items-center mt-2 fw-bold"
+                                onClick={handleLogout} // Chama a função de logout
+                            >
+                                <LogOut size={20} className="me-2" /> Sair da Conta
+                            </Button>
+                        </Card.Body>
+                    </Card>
+                </Col>
+            </Row>
 
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1500)); // Simula salvamento
-            setSuccessMessage("Perfil atualizado com sucesso!");
-            setIsEditing(false);
-        } catch (err) {
-            console.error("Erro ao salvar perfil:", err.response || err);
-            setError("Não foi possível salvar as alterações. Tente novamente.");
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleLogout = () => {
-        localStorage.removeItem('userToken'); // Limpa o token
-        navigate('/login');
-    };
-    
-    if (loading) {
-        return (
-            <Container className="d-flex align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
-                <Spinner animation="border" variant="warning" />
-                <p className="ms-2 text-white-50">Carregando perfil...</p>
-            </Container>
-        );
-    }
-    
-    return (
-        <Container className="py-5">
-             <Card className="bg-vagali-dark-card p-4 shadow-lg mx-auto border-warning border-top-0 border-end-0 border-bottom-0 border-5" style={{ maxWidth: '800px' }}>
-                <h2 className="text-center mb-4 text-white fw-bold">
-                    <User className="me-2 text-warning" /> Meu Perfil ({profileData.is_professional ? 'Profissional' : 'Cliente'})
-                </h2>
-
-                {/* BOTÕES DE AÇÃO (EDITAR/SAIR) */}
-                <div className="d-flex justify-content-end gap-2 mb-4">
-                    <Button 
-                        variant={isEditing ? "danger" : "warning"}
-                        onClick={handleToggleEdit} 
-                        disabled={isSaving}
-                        className="fw-bold"
-                        style={!isEditing ? { backgroundColor: '#f59e0b', borderColor: '#f59e0b' } : {}}
-                    >
-                        {isEditing ? 'Cancelar' : <><Pencil className="me-2" size={18} /> Editar</>}
-                    </Button>
-                     <Button 
-                        variant="secondary"
-                        onClick={handleLogout} 
-                        className="fw-bold"
-                    >
-                        <LogOut className="me-2" size={18} /> Sair
-                    </Button>
-                </div>
-
-                {successMessage && <Alert variant="success">{successMessage}</Alert>}
-                {error && <Alert variant="danger">{error}</Alert>}
-                
-                <Form onSubmit={handleSave}>
-                    
-                    {/* Visualização da Foto de Perfil */}
-                    <div className="text-center mb-4">
-                        <div 
-                            className="mx-auto bg-secondary d-flex align-items-center justify-content-center"
-                            style={{ width: '120px', height: '120px', borderRadius: '50%', marginBottom: '10px' }}
-                        >
-                            {profileData.profile_picture_url ? (
-                                <img src={profileData.profile_picture_url} alt="Foto de Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
-                            ) : (
-                                <Camera size={40} className="text-white-50" />
-                            )}
-                        </div>
-                        {isEditing && (
-                            <Button variant="link" size="sm" className="text-warning">
-                                Alterar Foto
-                            </Button>
-                        )}
-                    </div>
-
-                    {/* DADOS BASE DO USUÁRIO */}
-                    <h5 className="text-white-50 border-bottom border-secondary pb-2 mb-3 mt-3">Informações Pessoais</h5>
-                    <Row>
-                        <Col md={6}><Form.Group className="mb-3"><Form.Label className="text-white-50">Nome Completo:</Form.Label><Form.Control type="text" id="full_name" className="form-control-dark" value={profileData.full_name} onChange={handleChange} readOnly={!isEditing} required/></Form.Group></Col>
-                        <Col md={6}><Form.Group className="mb-3"><Form.Label className="text-white-50">E-mail (Acesso):</Form.Label><Form.Control type="email" className="form-control-dark" value={profileData.email} readOnly disabled/></Form.Group></Col>
-                        <Col md={6}><Form.Group className="mb-3"><Form.Label className="text-white-50">CPF:</Form.Label><Form.Control type="text" id="cpf" className="form-control-dark" value={profileData.cpf} onChange={handleChange} readOnly={!isEditing} required maxLength={14}/></Form.Group></Col>
-                        <Col md={6}><Form.Group className="mb-3"><Form.Label className="text-white-50">Telefone:</Form.Label><Form.Control type="tel" id="phone_number" className="form-control-dark" value={profileData.phone_number} onChange={handleChange} readOnly={!isEditing}/></Form.Group></Col>
-                    </Row>
-                    
-                    {/* NOVO: CEP e Endereço */}
-                    <h5 className="text-white-50 border-bottom border-secondary pb-2 mb-3 mt-3"><MapPin className="me-2" size={18}/> Localização</h5>
-                    <Row>
-                          <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label className="text-white-50">CEP:</Form.Label>
-                                <Form.Control 
-                                    type="text" 
-                                    id="cep"
-                                    className="form-control-dark" 
-                                    value={profileData.cep}
-                                    onChange={handleChange}
-                                    readOnly={!isEditing}
-                                    maxLength={9}
-                                    placeholder="00000-000"
-                                />
-                                <Form.Text className="text-white-50">Usado para cálculo de distância.</Form.Text>
-                            </Form.Group>
-                          </Col>
-                          <Col md={6}>
-                            <Form.Group className="mb-3">
-                                <Form.Label className="text-white-50">Endereço de Atendimento (Cidade/Bairro):</Form.Label>
-                                <Form.Control 
-                                    type="text" 
-                                    id="address"
-                                    className="form-control-dark" 
-                                    value={profileData.address}
-                                    onChange={handleChange}
-                                    readOnly={!isEditing}
-                                    placeholder="Ex: Rio de Janeiro, Copacabana"
-                                />
-                            </Form.Group>
-                          </Col>
-                    </Row>
-                    
-                    {/* DADOS DO PERFIL PROFISSIONAL */}
-                    {profileData.is_professional && (
-                        <div className="professional-fields-block pt-3 mt-4">
-                            <h5 className="text-warning border-bottom border-warning pb-2 mb-3">Perfil Profissional</h5>
-                            <Form.Group className="mb-3">
-                                <Form.Label className="text-white-50">Sobre Mim (Bio):</Form.Label>
-                                <Form.Control as="textarea" rows={3} id="bio" className="form-control-dark" value={profileData.bio} onChange={handleChange} readOnly={!isEditing}/>
-                            </Form.Group>
-                            <Form.Group className="mb-3">
-                                <Form.Label className="text-white-50">CNPJ (Opcional):</Form.Label>
-                                <Form.Control type="text" id="cnpj" className="form-control-dark" value={profileData.cnpj} onChange={handleChange} readOnly={!isEditing} maxLength={18}/>
-                            </Form.Group>
-                            <Form.Group className="mb-3">
-                                <Form.Label className="text-white-50">Palavras-Chave (Separadas por vírgula):</Form.Label>
-                                <Form.Control type="text" id="palavras_chave" className="form-control-dark" value={profileData.palavras_chave} onChange={handleChange} readOnly={!isEditing} placeholder="Ex: Eletricista, Reformas, Encanador"/>
-                            </Form.Group>
-                        </div>
-                    )}
-                    
-                    {/* BOTÃO DE SALVAR */}
-                    {isEditing && (
-                        <div className="mt-4">
-                            <Button 
-                                type="submit" 
-                                className="w-100 fw-bold py-2"
-                                style={{ backgroundColor: '#f59e0b', borderColor: '#f59e0b' }}
-                                disabled={isSaving}
-                            >
-                                {isSaving ? <Spinner animation="border" size="sm" /> : 'Salvar Alterações'}
-                            </Button>
-                        </div>
-                    )}
-                </Form>
-                
-                {/* --- SEÇÃO DE DEMANDAS --- */}
-                <MyDemandsSection 
-                    profileData={profileData} 
-                    onNewDemandClick={handleNewDemandClick}
-                    demands={demands} 
-                    loadingDemands={loadingDemands}
-                    onEdit={handleEditDemand} 
-                    onDelete={handleDeleteDemand}
-                />
-                
-            </Card>
-        </Container>
-    );
-}
+        </Container>
+    );
+};
 
 export default ProfileManagement;

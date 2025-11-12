@@ -1,83 +1,78 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { useParams, Link } from 'react-router-dom';
-// Importação do Pagination e Switch adicionado aqui:
+import { useParams, Link, useNavigate } from 'react-router-dom'; 
 import { Container, Row, Col, Card, Button, Spinner, Alert, Form, Pagination } from 'react-bootstrap'; 
-// Importação de icones
-import { Star, CalendarCheck, Share2, MessageSquare, MapPin, Zap, AlertTriangle, Pencil, Camera, Trash2, X, Check, Clock, Edit, CheckCircle, ListChecks } from 'lucide-react'; 
+import { Star, CalendarCheck, Share2, MessageSquare, MapPin, Zap, AlertTriangle, Pencil, Camera, Trash2, X, Check, Clock, Edit, CheckCircle, ListChecks, UserPlus } from 'lucide-react'; 
 
 // Endpoint para buscar o perfil 
 const BASE_PROFILE_URL = '/api/v1/accounts/profissionais/';
 
-// Simulação de Dados de Mídia para o modo de edição (Atualizado para incluir a propriedade 'type')
+// --- SIMULAÇÃO DE DADOS ---
+// Defina aqui o ID do usuário logado para simular o modo proprietário.
+// ATENÇÃO: Use este mesmo ID (ou o ID real do usuário logado) nos arquivos de Profile e Header.
+const SIMULATED_LOGGED_IN_USER_ID = '2024'; 
+const isClientLoggedIn = true; 
+// --------------------------
+
+// Simulação de Dados de Mídia (Mantido)
 const initialMedia = [
-    // Substituindo a cor por uma URL de placeholder para simular imagem
     { id: 1, label: 'Cozinha', url: 'https://via.placeholder.com/100/ffb564/000000?text=Cozinha_1', type: 'image' }, 
     { id: 2, label: 'Banheiro', url: 'https://via.placeholder.com/100/87ceeb/000000?text=Banheiro_2', type: 'image' }, 
     { id: 3, label: 'Sala', url: 'https://via.placeholder.com/100/90ee90/000000?text=Sala_3', type: 'image' }, 
-    { id: 4, label: 'Elétrica', url: 'https://via.placeholder.com/100/ff6961/000000?text=Eletrica_4', type: 'image' }, 
-    { id: 5, label: 'Pintura', url: 'https://via.placeholder.com/100/a0a0a0/000000?text=Pintura_5', type: 'image' }, 
-    { id: 6, label: 'Jardim', url: 'https://via.placeholder.com/100/66bb6a/000000?text=Jardim_6', type: 'image' },
-    { id: 7, label: 'Telhado', url: 'https://via.placeholder.com/100/795548/000000?text=Telhado_7', type: 'image' },
-    { id: 8, label: 'Piscina', url: 'https://via.placeholder.com/100/03a9f4/000000?text=Piscina_8', type: 'image' },
-    { id: 9, label: 'Garagem', url: 'https://via.placeholder.com/100/78909c/000000?text=Garagem_9', type: 'image' },
-    { id: 10, label: 'Varanda', url: 'https://via.placeholder.com/100/ff8a65/000000?text=Varanda_10', type: 'image' }, 
-    { id: 11, label: 'Escada', url: 'https://via.placeholder.com/100/ba68c8/000000?text=Escada_11', type: 'image' }, 
-    { id: 12, label: 'Sótão', url: 'https://via.placeholder.com/100/ffee58/000000?text=Sotao_12', type: 'image' }, 
 ];
+
+// Dados de Padrão/Fallback
+const DEFAULT_PROFILE_DATA = {
+    user_id: 999,
+    full_name: "PROFISSIONAL GENÉRICO (FALHA API)", // Nome de fallback mais claro
+    servico_principal: "Serviços Diversos",
+    cidade: "São Gonçalo",
+    estado: "RJ",
+    rating: 4.2,
+    feedback_count: 5,
+    demands_completed: 10,
+    descricao_servicos: "Nenhuma descrição detalhada fornecida ainda. Aqui será exibida a formação, experiência e CNPJ, se fornecidos.",
+    cnpj: '00.000.000/0000-00',
+};
+
 
 const ProfessionalProfileView = () => {
     const { id } = useParams(); 
+    const navigate = useNavigate(); 
     const [professional, setProfessional] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [shareMessage, setShareMessage] = useState(null); 
     
-    // NOVO ESTADO: Verifica se é o dono do perfil para habilitar a edição/dashboard
-    const [isOwner, setIsOwner] = useState(true); // Simulação: Assume que o usuário é o dono
+    // isOwner será definido dentro do useEffect/fetchProfile para reagir ao 'id' da URL
+    const [isOwner, setIsOwner] = useState(false); 
     const [isEditing, setIsEditing] = useState(false);
     const [editableData, setEditableData] = useState({});
-    const [activeDemandFilter, setActiveDemandFilter] = useState('Ativo'); // Estado para o filtro de demandas
+    const [activeDemandFilter, setActiveDemandFilter] = useState('Ativo'); 
     const [media, setMedia] = useState(initialMedia);
     
-    // NOVO ESTADO: Foto de Perfil (Simulação)
     const [profilePicture, setProfilePicture] = useState(null);
-    // NOVO ESTADO: Status de Disponibilidade
     const [isAvailable, setIsAvailable] = useState(true);
-
-    // ESTADOS DE PAGINAÇÃO
-    const [currentPage, setCurrentPage] = useState(1); // Inicia na página 1
-    const itemsPerPage = 6; // 6 itens por página
-
-    // Dados de Exemplo (Estes campos devem existir no JSON retornado pela sua API)
-    const rating = professional?.rating || 4.8; 
-    const feedbackCount = professional?.feedback_count || 15;
-    const isClientLoggedIn = localStorage.getItem('userToken'); // Simulação de login
-    const satisfactionRate = Math.round((rating / 5) * 100); 
-    const demandsCompleted = professional?.demands_completed || 42; 
-
-    // Simulação de demandas (para o novo bloco)
-    const demandCounts = {
-        Ativo: 5,
-        'Em Negociação': 12,
-        Concluídas: 42,
-    };
+    const [isFollowing, setIsFollowing] = useState(false); 
     
-    // Simulação da Agenda (Dias da Semana)
+    const [currentPage, setCurrentPage] = useState(1); 
+    const itemsPerPage = 6; 
     const initialSchedule = {
-        segunda: true,
-        terca: true,
-        quarta: true,
-        quinta: true,
-        sexta: true,
-        sabado: false,
-        domingo: false,
+        segunda: true, terca: true, quarta: true, quinta: true, 
+        sexta: true, sabado: false, domingo: false,
     };
     const [schedule, setSchedule] = useState(initialSchedule);
 
 
+    // Dados derivados (Usando optional chaining: ?. )
+    const rating = professional?.rating || 0; 
+    const feedbackCount = professional?.feedback_count || 0;
+    const satisfactionRate = Math.round((rating / 5) * 100); 
+    const demandsCompleted = professional?.demands_completed || 0; 
+    const demandCounts = { Ativo: 5, 'Em Negociação': 12, Concluídas: 42 };
+
     // ----------------------------------------------------
-    // LÓGICA DE PAGINAÇÃO
+    // LÓGICA DE PAGINAÇÃO (Mantida)
     // ----------------------------------------------------
     const totalPages = Math.ceil(media.length / itemsPerPage);
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -89,7 +84,6 @@ const ProfessionalProfileView = () => {
         setCurrentPage(pageNumber);
     };
     
-    // Função auxiliar para renderizar os itens de paginação (Mantida)
     const renderPaginationItems = () => {
         let items = [];
         const maxVisiblePages = 5; 
@@ -145,45 +139,83 @@ const ProfessionalProfileView = () => {
     };
 
     // ----------------------------------------------------
-    // FUNÇÕES DE FETCH E EDIÇÃO (Mantidas)
+    // FUNÇÕES DE FETCH E EDIÇÃO 
     // ----------------------------------------------------
 
     const fetchProfile = useCallback(async () => {
+        if (!id) {
+             setError("ID do profissional ausente na URL.");
+             setLoading(false);
+             return;
+        }
+        
         setLoading(true);
         setError(null);
+        
+        const detailUrl = `${BASE_PROFILE_URL}${id}/`;
+
+        // LÓGICA DE PROPRIEDADE DE FALLBACK/SIMULAÇÃO:
+        const fallbackIsOwner = id === SIMULATED_LOGGED_IN_USER_ID; 
+        setIsOwner(fallbackIsOwner); 
+        
         try {
-            const response = await axios.get(`${BASE_PROFILE_URL}${id}/`);
-            setProfessional(response.data); 
-            setEditableData(response.data); 
+            const response = await axios.get(detailUrl);
+            const responseData = response.data;
+            
+            setProfessional(responseData); 
+            setEditableData(responseData); 
+            
+            // Revalida o isOwner com base no ID retornado (se for diferente do ID na URL)
+            setIsOwner(responseData.user_id?.toString() === SIMULATED_LOGGED_IN_USER_ID || responseData.id?.toString() === SIMULATED_LOGGED_IN_USER_ID);
+            
+            // Simulação de Acompanhamento (Seguir)
+            if (!isOwner && isClientLoggedIn) { 
+                 setIsFollowing(responseData.id === 1); 
+            } else {
+                 setIsFollowing(false); 
+            }
+            
         } catch (err) {
-            console.error("Erro ao carregar perfil:", err.response || err);
-            setError("Não foi possível carregar o perfil. Verifique a conexão.");
+            console.error(`Erro ao carregar perfil (ID: ${id}):`, err.response || err);
+            
+            if (err.response && (err.response.status === 404 || err.response.status === 400)) {
+                 setError("Perfil não encontrado ou inválido. Exibindo dados de fallback.");
+                 
+                 setProfessional({ ...DEFAULT_PROFILE_DATA, user_id: id }); 
+                 setEditableData({ ...DEFAULT_PROFILE_DATA, user_id: id });
+                 // isOwner já foi definido acima (fallbackIsOwner), garantindo a edição mesmo com 404
+            } else {
+                 setError(`Não foi possível carregar o perfil do ID ${id}. Verifique a conexão ou a API.`);
+                 setProfessional(null); 
+            }
+
         } finally {
-            setLoading(false);
+            setLoading(false); 
         }
-    }, [id]);
+    }, [id, isClientLoggedIn]);
 
     useEffect(() => {
-        if (id) {
-            fetchProfile();
-        }
+        setIsEditing(false); 
+        fetchProfile();
     }, [id, fetchProfile]);
 
     const handleEditToggle = () => {
-        setIsEditing(!isEditing);
-        if (isEditing) {
-            setEditableData(professional);
+        if (isOwner) {
+            setIsEditing(!isEditing);
+            if (isEditing) {
+                // Ao cancelar, restaura os dados originais
+                setEditableData(professional);
+            }
         }
     };
     
     const handleSaveProfile = async () => {
         setLoading(true);
         try {
-            // Simulação: Incluir o status na chamada de save (isAvailable)
             const dataToSave = { ...editableData, is_available: isAvailable };
+            // AQUI VOCÊ FARIA O PATCH REAL
             // await axios.patch(`${BASE_PROFILE_URL}${id}/`, dataToSave); 
             
-            // Simulação de sucesso
             setProfessional(dataToSave);
             setIsEditing(false);
             showShareMessage('Perfil atualizado com sucesso!', 'success');
@@ -203,16 +235,49 @@ const ProfessionalProfileView = () => {
         setSchedule(prev => ({ ...prev, [day]: !prev[day] }));
     };
     
-    // ----------------------------------------------------
-    // FUNÇÃO DE MUDANÇA DE FOTO DE PERFIL (Mantida)
-    // ----------------------------------------------------
+    const handleFollowToggle = () => {
+        if (!isClientLoggedIn) {
+            showShareMessage('Para seguir um profissional, você precisa estar logado! Por favor, faça login ou crie uma conta.', 'warning');
+            return;
+        }
+
+        const newState = !isFollowing;
+        setIsFollowing(newState);
+
+        if (newState) {
+            const name = professional?.full_name?.split(' ')[0] || 'o profissional';
+            showShareMessage(`Você começou a seguir ${name}!`, 'success');
+        } else {
+            const name = professional?.full_name?.split(' ')[0] || 'o profissional';
+            showShareMessage(`Você deixou de seguir ${name}.`, 'info');
+        }
+    };
+
+    const handleServiceRequest = () => {
+        if (!isClientLoggedIn) {
+             showShareMessage('Para solicitar um serviço, você precisa estar logado! Por favor, faça login ou crie uma conta.', 'warning');
+             return;
+        }
+        
+        navigate('/criar-demanda', { 
+            state: { 
+                professional: { 
+                    id: professional.id, 
+                    full_name: professional.full_name,
+                    servico_principal: professional.servico_principal,
+                } 
+            } 
+        });
+    };
+
+
     const handleProfilePictureChange = (e) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
             const reader = new FileReader();
             
             reader.onload = (upload) => {
-                setProfilePicture(upload.target.result); // Simula o upload da imagem
+                setProfilePicture(upload.target.result); 
                 showShareMessage('Nova foto de perfil selecionada!', 'info');
             };
             
@@ -220,33 +285,28 @@ const ProfessionalProfileView = () => {
         }
     };
 
-    // ----------------------------------------------------
-    // FUNÇÃO DE ADICIONAR MÍDIA REAL (NOVA)
-    // ----------------------------------------------------
-    
     const handleFileSelection = (e) => {
+        if (!isOwner) return; 
         const files = e.target.files;
         if (!files.length) return;
 
         let filesProcessed = 0;
         
-        // Use Promise.all ou um loop com contador para garantir a ordem/estado correto após todos os uploads
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const reader = new FileReader();
 
             reader.onload = (upload) => {
                 const newMediaItem = {
-                    id: Date.now() + i, // Garante ID único mesmo em uploads múltiplos
+                    id: Date.now() + i, 
                     label: file.name,
-                    url: upload.target.result, // Data URL para exibição local
-                    type: file.type.startsWith('video/') ? 'video' : 'image', // Define o tipo de renderização
+                    url: upload.target.result, 
+                    type: file.type.startsWith('video/') ? 'video' : 'image', 
                 };
                 
                 setMedia(prev => {
                     const newMedia = [...prev, newMediaItem];
                     
-                    // Se a adição criar uma nova página, move para ela (logica ajustada)
                     const newTotalPages = Math.ceil(newMedia.length / itemsPerPage);
                     if (currentPage < newTotalPages) {
                          setCurrentPage(newTotalPages);
@@ -266,15 +326,15 @@ const ProfessionalProfileView = () => {
     };
 
     const handleDeleteMedia = (idToDelete) => {
+        if (!isOwner) return; 
         setMedia(prev => {
             const newMedia = prev.filter(item => item.id !== idToDelete);
             
-            // Após remover, verifica se a página atual existe, senão volta uma página
             const newTotalPages = Math.ceil(newMedia.length / itemsPerPage);
             if (currentPage > newTotalPages && newTotalPages > 0) {
                 setCurrentPage(newTotalPages);
             } else if (newTotalPages === 0) {
-                setCurrentPage(1); // Garante que a página seja 1 se todos forem excluídos
+                setCurrentPage(1);
             }
             
             return newMedia;
@@ -282,10 +342,6 @@ const ProfessionalProfileView = () => {
         showShareMessage('Item de mídia removido!', 'success');
     };
 
-
-    // ----------------------------------------------------
-    // FUNÇÕES GERAIS DE UI (Mantidas)
-    // ----------------------------------------------------
 
     const showShareMessage = (message, variant = 'info') => {
         setShareMessage({ message, variant });
@@ -313,6 +369,7 @@ const ProfessionalProfileView = () => {
         }
     };
 
+
     // ----------------------------------------------------
     // RENDERIZAÇÃO
     // ----------------------------------------------------
@@ -327,31 +384,60 @@ const ProfessionalProfileView = () => {
     }
 
     if (error) {
-        return (
-            <Container className="py-4" style={{ minHeight: '80vh' }}>
-                <Alert variant="danger" className="text-center">{error}</Alert>
-            </Container>
-        );
+         if (!professional) {
+             return (
+                 <Container className="py-4" style={{ minHeight: '80vh' }}>
+                     <Alert variant="danger" className="text-center">{error}</Alert>
+                 </Container>
+             );
+         }
     }
 
-    if (!professional) return null;
+    if (!professional) return null; 
 
-    const displayName = isEditing ? (editableData.full_name || 'Profissional Sem Nome') : (professional.full_name || 'Profissional Sem Nome');
+    
+    const displayName = isEditing 
+        ? (editableData.full_name || 'Profissional Sem Nome') 
+        : (professional?.full_name || 'Profissional Sem Nome'); 
 
 
     return (
-        // Aplicando cores de tema CLARO para o container de texto
         <Container className="py-4" style={{ color: 'var(--dark-text)' }}> 
             
+            {/* INDICADORES DE DEBUG NO TOPO */}
+            <Row className="mb-2">
+                <Col>
+                    <Alert variant="info" className="p-1 text-center small mb-0">
+                        DEBUG: Dono: <strong className={isOwner ? 'text-success' : 'text-danger'}>{isOwner.toString()}</strong> | 
+                        Editando: <strong className={isEditing ? 'text-success' : 'text-danger'}>{isEditing.toString()}</strong> | 
+                        Simulated ID: <strong>{SIMULATED_LOGGED_IN_USER_ID}</strong>
+                    </Alert>
+                </Col>
+            </Row>
+            {/* FIM INDICADORES DE DEBUG */}
+
             {shareMessage && (
                 <Alert variant={shareMessage.variant} onClose={() => setShareMessage(null)} dismissible className="sticky-top mb-3 shadow-lg" style={{ top: '15px', zIndex: 10 }}> 
                     {shareMessage.message}
                 </Alert>
             )}
+            
+            {error && professional?.user_id?.toString() !== DEFAULT_PROFILE_DATA.user_id.toString() && (
+                <Alert variant="danger" className="mb-3 text-center">
+                    {error}
+                </Alert>
+            )}
+            {/* Este alerta é acionado se a API falhar e retornar o nome genérico */}
+            {professional?.full_name?.toString() === DEFAULT_PROFILE_DATA.full_name.toString() && (
+                 <Alert variant="danger" className="mb-3 text-center">
+                    Não foi possível carregar os dados reais do profissional (ID: {id}). A API falhou. Exibindo perfil genérico!
+                </Alert>
+            )}
+
 
             <Row className="justify-content-center">
                 <Col lg={11} xl={10}>
-                    {/* CABEÇALHO DO PERFIL (Mantido shadow-lg, conforme solicitado) */}
+                    {/* CABEÇALHO DO PERFIL */}
                     <Card className="bg-vagali-dark-card mb-3 p-3 shadow-lg" style={{ borderColor: 'var(--header-bg)' }}> 
                         <Row className="align-items-center">
                             
@@ -364,7 +450,7 @@ const ProfessionalProfileView = () => {
                                         height: '70px', 
                                         backgroundColor: 'var(--header-bg)',
                                         border: `2px solid var(--primary-color)`,
-                                        position: 'relative' // Necessário para posicionar o botão da câmera
+                                        position: 'relative'
                                     }}
                                 >
                                     {profilePicture ? (
@@ -376,11 +462,12 @@ const ProfessionalProfileView = () => {
                                         />
                                     ) : (
                                         <h3 className="mb-0 fw-bold" style={{ color: 'var(--primary-color)' }}> 
+                                            {/* Usa optional chaining aqui também, apenas por segurança */}
                                             {displayName ? displayName[0] : 'P'}
                                         </h3>
                                     )}
                                     
-                                    {/* Botão de Câmera (Trocar Foto) */}
+                                    {/* Botão de Câmera (Trocar Foto) - Somente Dono e Editando */}
                                     {isOwner && isEditing && (
                                         <>
                                             <input
@@ -429,7 +516,7 @@ const ProfessionalProfileView = () => {
 
                                     <p className="fs-6 mb-1" style={{ color: 'var(--primary-color)' }}>
                                         <Zap size={16} className="me-1" />
-                                        {professional.servico_principal || 'Serviço Principal'}
+                                        {professional?.servico_principal || 'Serviço Principal'}
                                     </p>
 
                                     {isEditing ? (
@@ -460,22 +547,38 @@ const ProfessionalProfileView = () => {
                                     ) : (
                                         <p className="mb-0 small" style={{ color: 'var(--light-text)' }}>
                                             <MapPin size={14} className="me-1" />
-                                            {professional.cidade || 'Cidade não informada'}, {professional.estado || 'Estado'}
+                                            {professional?.cidade || 'Cidade não informada'}, {professional?.estado || 'Estado'}
                                         </p>
                                     )}
                                 </div>
                             </Col>
                             
                             <Col md={4} className="text-end d-flex flex-column align-items-end mt-2 mt-md-0">
-                                {/* Botão de Edição (Somente para o dono) */}
-                                {isOwner && (
+                                {/* BOTÃO PRINCIPAL DO CABEÇALHO */}
+                                {isOwner ? (
+                                    /* Opções de Edição para o Dono (EDITAR PERFIL / CANCELAR) */
                                     <Button 
                                         variant={isEditing ? 'danger' : 'primary'} 
                                         size="sm" 
                                         className="mb-2 w-75 fw-bold" 
-                                        onClick={handleEditToggle}
+                                        onClick={handleEditToggle} // ESTE BOTÃO CONTROLA O MODO EDIÇÃO INLINE
                                     >
                                         {isEditing ? (<><X size={16} className="me-1" /> CANCELAR</>) : (<><Pencil size={16} className="me-1" /> EDITAR PERFIL</>)}
+                                    </Button>
+                                ) : (
+                                    /* Botão SEGUIR para o Cliente/Visitante */
+                                    <Button 
+                                        size="sm" 
+                                        variant={isFollowing ? 'success' : 'outline-primary'} 
+                                        className="mb-2 w-75 fw-bold" 
+                                        onClick={handleFollowToggle}
+                                        style={isFollowing ? { color: 'white' } : { borderColor: 'var(--accent-color)', color: 'var(--accent-color)' }}
+                                    >
+                                        {isFollowing ? (
+                                            <><Check size={16} className="me-1" /> SEGUINDO</>
+                                        ) : (
+                                            <><UserPlus size={16} className="me-1" /> SEGUIR</>
+                                        )}
                                     </Button>
                                 )}
                                 
@@ -487,18 +590,12 @@ const ProfessionalProfileView = () => {
                                     <span className="ms-2 small" style={{ color: 'var(--dark-text)' }}>({rating.toFixed(1)}/5)</span>
                                 </div>
                                 
-                                {!isOwner && isClientLoggedIn && ( // Somente se for cliente e não o dono
-                                    <Button size="sm" variant="outline-primary" className="mb-2 w-75 fw-bold" style={{ borderColor: 'var(--accent-color)', color: 'var(--accent-color)' }}>
-                                        + SEGUIR
-                                    </Button>
-                                )}
-                                
                                 <Button size="sm" variant="outline-secondary" onClick={handleShare} className="w-75" style={{ borderColor: 'var(--light-text)', color: 'var(--light-text)' }}>
                                     <Share2 size={16} className="me-2" /> Compartilhar
                                 </Button>
                             </Col>
                         </Row>
-                        {isEditing && (
+                        {isOwner && isEditing && (
                             <div className="mt-3 text-end">
                                 <Button 
                                     variant="success" 
@@ -519,7 +616,6 @@ const ProfessionalProfileView = () => {
                         <Col md={7}>
                             
                             {/* Seção de Estatísticas Rápidas (Compacta) */}
-                            {/* Mantido: 3 cards lado a lado (md=4) */}
                             <Row className="mb-3 g-2"> 
                                 <Col xs={12} md={4}> 
                                     {/* Satisfação */}
@@ -536,7 +632,7 @@ const ProfessionalProfileView = () => {
                                     </Card>
                                 </Col>
                                 <Col xs={12} md={4}> 
-                                    {/* Status (Ativo/Inativo) - NOVO COMPONENTE */}
+                                    {/* Status (Ativo/Inativo) */}
                                     <Card className="bg-vagali-dark-card p-2 text-center h-100 shadow-lg d-flex flex-column justify-content-center"> 
                                         {isOwner && isEditing ? (
                                             <Form.Group className="d-flex align-items-center justify-content-center flex-column h-100">
@@ -564,7 +660,7 @@ const ProfessionalProfileView = () => {
                                 </Col>
                             </Row>
                             
-                            {/* Seção Sobre o Profissional - Com shadow-lg (Mantida) */}
+                            {/* Seção Sobre o Profissional */}
                             <Card className="bg-vagali-dark-card p-3 mb-3 shadow-lg"> 
                                 <h4 className="border-bottom pb-2 mb-3 fw-bold d-flex justify-content-between align-items-center" style={{ color: 'var(--dark-text)', borderBottomColor: 'var(--header-bg) !important' }}>
                                     Sobre o Profissional
@@ -585,13 +681,13 @@ const ProfessionalProfileView = () => {
                                     </Form.Group>
                                 ) : (
                                     <p style={{ color: 'var(--light-text)', whiteSpace: 'pre-line' }} className="small">
-                                        {professional.descricao_servicos || "Nenhuma descrição detalhada fornecida ainda. Aqui será exibida a formação, experiência e CNPJ, se fornecidos."}
+                                        {professional?.descricao_servicos || "Nenhuma descrição detalhada fornecida ainda. Aqui será exibida a formação, experiência e CNPJ, se fornecidos."}
                                     </p>
                                 )}
-                                <p className="small text-muted mb-0" style={{ color: 'var(--light-text)' }}>CNPJ: {professional.cnpj || 'Não Informado'}</p>
+                                <p className="small text-muted mb-0" style={{ color: 'var(--light-text)' }}>CNPJ: {professional?.cnpj || 'Não Informado'}</p>
                             </Card>
 
-                            {/* Seção de Portfólio/Mídia - Com shadow-lg (Atualizada) */}
+                            {/* Seção de Portfólio/Mídia */}
                             <Card className="bg-vagali-dark-card mb-3 p-3 shadow-lg">
                                 <h4 className="border-bottom pb-2 mb-3 fw-bold d-flex justify-content-between align-items-center" style={{ color: 'var(--dark-text)', borderBottomColor: 'var(--header-bg) !important' }}>
                                     Portfólio & Mídia
@@ -606,7 +702,7 @@ const ProfessionalProfileView = () => {
                                                 onChange={handleFileSelection}
                                                 style={{ display: 'none' }}
                                             />
-                                            {/* Botão Adicionar, ligado ao Input Oculto */}
+                                            {/* Botão Adicionar, ligado ao Input Oculto - Visível apenas para o Dono em Edição */}
                                             <label htmlFor="portfolioMediaInput" style={{ cursor: 'pointer' }}>
                                                 <Button size="sm" variant="outline-primary" as="span">
                                                     <Camera size={16} /> Adicionar
@@ -619,7 +715,6 @@ const ProfessionalProfileView = () => {
                                     {/* Mapeamento usando APENAS a mídia da página atual */}
                                     {currentMedia.map((item) => ( 
                                         <Col 
-                                            // 3 por linha
                                             xs={4} 
                                             className="mb-2" 
                                             key={item.id}
@@ -633,7 +728,7 @@ const ProfessionalProfileView = () => {
                                                     justifyContent: 'center', 
                                                     position: 'relative', 
                                                     overflow: 'hidden',
-                                                    backgroundColor: '#333' // Fundo escuro para mídias
+                                                    backgroundColor: '#333'
                                                 }}
                                                 className="small text-dark fw-bold shadow-sm"
                                             >
@@ -655,24 +750,26 @@ const ProfessionalProfileView = () => {
                                                     />
                                                 )}
                                                 
-                                                {/* Overlay para o label e botão de exclusão */}
+                                                {/* Overlay - Botão de exclusão */}
                                                 <div style={{
                                                     position: 'absolute', 
                                                     top: 0, 
                                                     left: 0, 
                                                     width: '100%', 
                                                     height: '100%', 
-                                                    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Overlay escuro
+                                                    backgroundColor: 'rgba(0, 0, 0, 0.4)', 
                                                     display: 'flex',
                                                     flexDirection: 'column',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
+                                                    alignItems: 'flex-start',
+                                                    justifyContent: 'flex-end',
                                                     color: 'white',
-                                                    textShadow: '1px 1px 2px #000'
+                                                    padding: '4px'
                                                 }}>
-                                                    <span className="text-center px-1 small text-truncate w-100">{item.label}</span>
-                                                    {item.type === 'video' && <span className="small">(Video)</span>}
-
+                                                    {/* Exibe o tipo de mídia no canto inferior esquerdo */}
+                                                    <span className="small fw-bold text-shadow-sm" style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: '1px 4px', borderRadius: '3px' }}>
+                                                        {item.type === 'video' ? '(Video)' : '(Foto)'}
+                                                    </span>
+                                                    
                                                     {isOwner && isEditing && (
                                                         <Button 
                                                             variant="danger" 
@@ -700,7 +797,7 @@ const ProfessionalProfileView = () => {
 
                             </Card>
                             
-                            {/* Seção de Agenda (Novo bloco, visível apenas para o profissional em edição) - Com shadow-lg (Mantida) */}
+                            {/* Seção de Agenda - Visível apenas para o profissional em edição */}
                             {isOwner && isEditing && (
                                 <Card className="bg-vagali-dark-card p-3 mb-3 shadow-lg">
                                     <h4 className="border-bottom pb-2 mb-3 fw-bold" style={{ color: 'var(--dark-text)', borderBottomColor: 'var(--header-bg) !important' }}>
@@ -725,89 +822,18 @@ const ProfessionalProfileView = () => {
                                     </Alert>
                                 </Card>
                             )}
-
-                            {/* Seção de Feedbacks - Com shadow-lg (Mantida) */}
-                            <Card className="bg-vagali-dark-card p-3 shadow-lg">
-                                <h4 className="border-bottom pb-2 mb-3 fw-bold" style={{ color: 'var(--dark-text)', borderBottomColor: 'var(--header-bg) !important' }}>Feedbacks ({feedbackCount})</h4>
-                                <p style={{ color: 'var(--light-text)' }} className="small mb-0">Aqui serão exibidos os comentários dos clientes com estrelas e datas.</p>
-                            </Card>
-
-                        </Col>
-                        
-                        {/* Coluna das Ações Flutuantes (Direita) - 5/12 */}
-                        <Col md={5} className="mt-3 mt-md-0">
                             
-                            {/* Bloco de Contato/Ações (Opções Rápidas) - Com shadow-lg (Mantida) */}
-                            <Card className="bg-vagali-dark-card p-3 shadow-lg mb-3"> 
-                                <h5 className="text-center mb-3 fw-bold" style={{ color: 'var(--dark-text)' }}>
-                                    {isOwner ? 'Opções Rápidas' : 'Entre em Contato'}
-                                </h5>
-                                
-                                {/* BOTÃO PRINCIPAL DE AÇÃO (Gerenciar Meus Dados ou Solicitar Serviços) */}
-                                {isOwner ? (
-                                    <Button 
-                                        as={Link} // Link para a tela de Gerenciamento de Dados Pessoais
-                                        to="/meu-perfil"
-                                        variant="warning" 
-                                        size="md" 
-                                        className="w-100 mb-2 fw-bold text-white" 
-                                        style={{ backgroundColor: 'var(--primary-color)', borderColor: 'var(--primary-color)' }}
-                                    >
-                                        <Edit size={16} className="me-1" /> GERENCIAR MEUS DADOS
-                                    </Button>
-                                ) : (
-                                    <Button 
-                                        variant="warning" 
-                                        size="md" 
-                                        className="w-100 mb-2 fw-bold text-white" 
-                                        style={{ backgroundColor: 'var(--primary-color)', borderColor: 'var(--primary-color)' }}
-                                    >
-                                        SOLICITAR SERVIÇOS
-                                    </Button>
-                                )}
-
-                                
-                                {/* BOTÃO CONSULTAR AGENDA */}
-                                <Button 
-                                    as={Link}
-                                    to={`/professional/${id}/schedule`}
-                                    variant="outline-warning" 
-                                    size="md" 
-                                    className="w-100 mb-2 fw-bold" 
-                                    style={{ color: 'var(--primary-color)', borderColor: 'var(--primary-color)' }}
-                                >
-                                    <CalendarCheck size={16} className="me-2" /> CONSULTAR AGENDA
-                                </Button>
-                                
-                                {/* BOTÃO ENVIAR MENSAGEM */}
-                                <Button 
-                                    variant="outline-primary" 
-                                    size="md" 
-                                    className="w-100 mb-2 fw-bold" 
-                                    style={{ color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}
-                                >
-                                    <MessageSquare size={16} className="me-2" /> ENVIAR MENSAGEM
-                                </Button>
-                                
-                                <Button variant="link" className="small w-100 mt-2 text-muted" style={{ color: 'var(--light-text)' }}> 
-                                    <AlertTriangle size={14} className="me-1" style={{ color: 'red' }} /> DENUNCIAR CONTA
-                                </Button>
-                            </Card>
-
-                            {/* Bloco de Gerenciamento de Demandas - Com shadow-lg (Mantida) */}
+                            {/* Bloco de Gerenciamento de Demandas - Visível apenas para o Dono */}
                             {isOwner && (
-                                <Card className="bg-vagali-dark-card p-3 shadow-lg"> 
+                                <Card className="bg-vagali-dark-card p-3 shadow-lg mb-3"> 
                                     <h5 className="text-center mb-3 fw-bold" style={{ color: 'var(--dark-text)' }}>
                                         <ListChecks size={18} className="me-1" style={{ color: 'var(--accent-color)' }}/> 
                                         Minhas Demandas
                                     </h5>
                                     
-                                    {/* Ajuste fino mantido para estabilidade */}
                                     <Row className="justify-content-between g-1 mb-2">
                                         {['Ativo', 'Em Negociação', 'Concluídas'].map(filter => {
                                             const isActive = activeDemandFilter === filter;
-                                            
-                                            // Abreviação mantida para garantir a estabilidade do layout em colunas menores
                                             const displayText = filter === 'Em Negociação' ? 'Negoc.' : filter.split(' ')[0];
 
                                             return (
@@ -837,6 +863,80 @@ const ProfessionalProfileView = () => {
                                     </Alert>
                                 </Card>
                             )}
+
+                            {/* Seção de Feedbacks */}
+                            <Card className="bg-vagali-dark-card p-3 shadow-lg">
+                                <h4 className="border-bottom pb-2 mb-3 fw-bold" style={{ color: 'var(--dark-text)', borderBottomColor: 'var(--header-bg) !important' }}>Feedbacks ({feedbackCount})</h4>
+                                <p style={{ color: 'var(--light-text)' }} className="small mb-0">Aqui serão exibidos os comentários dos clientes com estrelas e datas.</p>
+                            </Card>
+
+                        </Col>
+                        
+                        {/* Coluna das Ações Flutuantes (Direita) - 5/12 */}
+                        <Col md={5} className="mt-3 mt-md-0">
+                            
+                            {/* Bloco de Contato/Ações (Opções Rápidas) */}
+                            <Card className="bg-vagali-dark-card p-3 shadow-lg mb-3"> 
+                                <h5 className="text-center mb-3 fw-bold" style={{ color: 'var(--dark-text)' }}>
+                                    {isOwner ? 'Opções Rápidas' : 'Entre em Contato'}
+                                </h5>
+                                
+                                {/* BOTÃO PRINCIPAL DE AÇÃO */}
+                                {isOwner ? (
+                                    /* Dono: Gerenciar Meus Dados - NAVEGAÇÃO */
+                                    <Button 
+                                        as={Link}
+                                        to="/meu-perfil"
+                                        variant="warning" 
+                                        size="md" 
+                                        className="w-100 mb-2 fw-bold text-white" 
+                                        style={{ backgroundColor: 'var(--primary-color)', borderColor: 'var(--primary-color)' }}
+                                    >
+                                        <Edit size={16} className="me-1" /> GERENCIAR MEUS DADOS
+                                    </Button>
+                                ) : (
+                                    /* Cliente/Visitante: Solicitar Serviços */
+                                    <Button 
+                                        variant="warning" 
+                                        size="md" 
+                                        className="w-100 mb-2 fw-bold text-white" 
+                                        onClick={handleServiceRequest} 
+                                        style={{ backgroundColor: 'var(--primary-color)', borderColor: 'var(--primary-color)' }}
+                                    >
+                                        SOLICITAR SERVIÇOS
+                                    </Button>
+                                )}
+
+                                
+                                {/* BOTÃO CONSULTAR AGENDA */}
+                                <Button 
+                                    as={Link}
+                                    to={`/professional/${id}/schedule`}
+                                    variant="outline-warning" 
+                                    size="md" 
+                                    className="w-100 mb-2 fw-bold" 
+                                    style={{ color: 'var(--primary-color)', borderColor: 'var(--primary-color)' }}
+                                >
+                                    <CalendarCheck size={16} className="me-2" /> CONSULTAR AGENDA
+                                </Button>
+                                
+                                {/* BOTÃO ENVIAR MENSAGEM */}
+                                <Button 
+                                    variant="outline-primary" 
+                                    size="md" 
+                                    className="w-100 mb-2 fw-bold" 
+                                    style={{ color: 'var(--accent-color)', borderColor: 'var(--accent-color)' }}
+                                >
+                                    <MessageSquare size={16} className="me-2" /> ENVIAR MENSAGEM
+                                </Button>
+                                
+                                {/* DENUNCIAR CONTA - SÓ APARECE SE ESTIVER LOGADO */}
+                                {isClientLoggedIn && (
+                                    <Button variant="link" className="small w-100 mt-2 text-muted" style={{ color: 'var(--light-text)' }}> 
+                                        <AlertTriangle size={14} className="me-1" style={{ color: 'red' }} /> DENUNCIAR CONTA
+                                    </Button>
+                                )}
+                            </Card>
                         </Col>
                     </Row>
                 </Col>

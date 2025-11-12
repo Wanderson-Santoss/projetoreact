@@ -1,87 +1,74 @@
-import React, { useState, useEffect } from 'react';
-import { Navbar, Container, Nav, Button } from 'react-bootstrap';
-import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
-// 🚨 1. IMPORTAR O LOGO
-import logoBranco from '../assets/LOGOBRANCO.png'; // Ajuste o caminho conforme a sua estrutura de pastas
+import React from 'react';
+import { Navbar, Nav, Container, Button } from 'react-bootstrap';
+import { Link } from 'react-router-dom';
+// Importação do Contexto de Autenticação
+import { useAuth } from './AuthContext'; 
+// Ícones Lucide
+import { LogOut, User, Briefcase, LogIn, UserPlus } from 'lucide-react';
 
 const Header = () => {
-    // Estado para verificar se o usuário está logado
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const navigate = useNavigate();
-    // ...
+    // 1. Consome o estado e as funções do AuthContext
+    const { 
+        isAuthenticated, 
+        isUserProfessional, 
+        userId, 
+        logout // Função de logout centralizada
+    } = useAuth();
 
-    // Função de checagem (essencial para o header mudar)
-    useEffect(() => {
-        // Checa o token no localStorage
-        const token = localStorage.getItem('userToken');
-        setIsLoggedIn(!!token); 
-        // Esta função deve ser mais robusta, mas o '!!token' é o mínimo.
-    }, [navigate]); // Adicione 'navigate' se ele for usado em alguma função de clique
-
-    const handleLogout = () => {
-        localStorage.removeItem('userToken');
-        setIsLoggedIn(false);
-        navigate('/');
-        window.location.reload(); // Força o recarregamento da tela inicial
-    };
-
-    return (
-        <Navbar expand="lg" className="bg-vagali-header shadow-sm" sticky="top">
-            <Container>
-                {/* 🚨 2. INCLUSÃO DA IMAGEM NO NAVBAR.BRAND */}
-                <Navbar.Brand as={Link} to="/" className="d-flex align-items-center fw-bold fs-4">
-                    <img
-                        src={logoBranco} // Usa a importação do logo
-                        height="30" // Define a altura da imagem
-                        className="d-inline-block align-top me-2" // Adiciona margem à direita
-                        alt="Logo Vagali"
-                    />
-                    <span style={{ color: 'var(--primary-color)' }}>VagALI</span> 
-                </Navbar.Brand>
-
-                <Navbar.Toggle aria-controls="basic-navbar-nav" />
-                <Navbar.Collapse id="basic-navbar-nav">
-                    <Nav className="ms-auto">
-                        <Nav.Link as={Link} to="/" className="me-3 nav-link-custom">
-                            Início
-                        </Nav.Link>
-                        {/* Se estiver logado, mostra Perfil e Sair */}
-                        {isLoggedIn ? (
-                            <>
-                                {/* 🚨 CORRIGIDO: Rota alterada de /me para /meu-perfil */}
-                                <Nav.Link as={Link} to="/meu-perfil" className="me-3 nav-link-custom">
-                                    Meu Perfil
-                                </Nav.Link>
-                                <Button 
-                                    variant="outline-danger" 
-                                    onClick={handleLogout}
-                                    className="fw-bold"
-                                >
-                                    Sair
-                                </Button>
-                            </>
-                        ) : (
-                            // Se não estiver logado, mostra Login e Cadastro
-                            <>
-                                <Nav.Link as={Link} to="/login" className="me-3 nav-link-custom">
-                                    Entrar
-                                </Nav.Link>
-                                <Button 
-                                    as={Link} 
-                                    to="/register" 
-                                    className="fw-bold"
-                                    style={{ backgroundColor: 'var(--primary-color)', borderColor: 'var(--primary-color)' }}
-                                >
-                                    Cadastre-se
-                                </Button>
-                            </>
-                        )}
-                    </Nav>
-                </Navbar.Collapse>
-            </Container>
-        </Navbar>
-    );
+    return (
+        <Navbar bg="dark" variant="dark" expand="lg" className="shadow-sm border-bottom border-warning">
+            <Container>
+                <Navbar.Brand as={Link} to="/" className="fw-bold fs-4 text-warning">VagALI</Navbar.Brand>
+                <Navbar.Toggle aria-controls="basic-navbar-nav" />
+                <Navbar.Collapse id="basic-navbar-nav">
+                    <Nav className="ms-auto d-flex align-items-center">
+                        <Nav.Link as={Link} to="/" className="me-3">Início</Nav.Link>
+                        
+                        {/* 2. Lógica Condicional: Exibe links diferentes se autenticado */}
+                        {isAuthenticated ? (
+                            // --- USUÁRIO LOGADO: Minha Conta e (opcionalmente) Meu Portfólio ---
+                            <>
+                                {/* Minha Conta (Sempre visível para logados) */}
+                                <Nav.Link as={Link} to="/meu-perfil" className="d-flex align-items-center me-3 text-white-50">
+                                    <User size={18} className="me-1" /> Minha Conta
+                                </Nav.Link>
+                                
+                                {/* Meu Portfólio (SÓ PARA PROFISSIONAIS) */}
+                                {isUserProfessional && (
+                                    <Nav.Link as={Link} to={`/professional/${userId}`} className="d-flex align-items-center me-3 text-white-50">
+                                        <Briefcase size={18} className="me-1" /> Meu Portfólio
+                                    </Nav.Link>
+                                )}
+                                
+                                {/* Botão SAIR (Chama o logout do Contexto) */}
+                                <Button
+                                    variant="outline-danger"
+                                    size="sm"
+                                    className="d-flex align-items-center fw-bold"
+                                    onClick={logout} // Chama a função centralizada do AuthContext
+                                >
+                                    <LogOut size={16} className="me-1" /> Sair
+                                </Button>
+                            </>
+                        ) : (
+                            // --- USUÁRIO NÃO LOGADO: Login e Cadastro ---
+                            <>
+                                {/* Login */}
+                                <Nav.Link as={Link} to="/login" className="d-flex align-items-center me-2 text-warning">
+                                    <LogIn size={18} className="me-1" /> Login
+                                </Nav.Link>
+                                
+                                {/* Cadastro */}
+                                <Button as={Link} to="/register" variant="warning" className="d-flex align-items-center fw-bold">
+                                    <UserPlus size={18} className="me-1" /> Cadastro
+                                </Button>
+                            </>
+                        )}
+                    </Nav>
+                </Navbar.Collapse>
+            </Container>
+        </Navbar>
+    );
 };
 
 export default Header;
