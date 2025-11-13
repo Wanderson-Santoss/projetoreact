@@ -4,8 +4,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios'; 
 import { Briefcase, User, Repeat, Settings, ListChecks, MapPin, Camera, Heart, ChevronDown, ChevronUp, MessageSquare, LogOut } from 'lucide-react'; 
 
+import FollowingProfessionalsList from './FollowingProfessionalsList';
 import MyDemandsSection from './MyDemandsSection'; 
-import { useAuth } from './AuthContext'; // CRÍTICO: Importação do contexto
+import { useAuth } from './AuthContext'; 
 
 // CONSTANTES E URLS
 const VIACEP_URL = 'https://viacep.com.br/ws/';
@@ -16,13 +17,15 @@ const ProfileManagement = () => {
     
     const navigate = useNavigate();
     
-    // 🚨 CORREÇÃO CRÍTICA: Desestruturando o token e o setUserRole
+    // 🚨 ATUALIZAÇÃO 1: Adicionado setUserName para atualizar o nome no Contexto
     const { 
         token, 
         isUserProfessional, 
-        setUserRole, // <--- Usando a função correta do contexto
+        setUserRole, 
         logout,
-        userId // Opcional, para linkar a ProfessionalProfileView
+        userId,
+        user, // Incluir o objeto user
+        setUserName // <--- NOVO: Função para atualizar o nome
     } = useAuth(); 
 
     // ESTADOS DE CONTROLE
@@ -32,8 +35,9 @@ const ProfileManagement = () => {
     const [apiError, setApiError] = useState(null);
     const [cepLoading, setCepLoading] = useState(false);
     const [cepError, setCepError] = useState(null);
+    const [profilePictureFile, setProfilePictureFile] = useState(null); // Estado para o arquivo de imagem
 
-    // 🚨 ESTADO DO FORMULÁRIO (MATCHING BACKEND SERIALIZER FIELDS)
+    // ESTADO DO FORMULÁRIO (MATCHING BACKEND SERIALIZER FIELDS)
     const [profileData, setProfileData] = useState({
         // DADOS DO USER
         email: '', 
@@ -77,7 +81,7 @@ const ProfileManagement = () => {
                     street: data.logradouro || '',
                     neighborhood: data.bairro || '',
                     cidade: data.localidade || '', 
-                    estado: data.uf || '',         
+                    estado: data.uf || '',      
                 }));
             }
         } catch (error) {
@@ -102,7 +106,6 @@ const ProfileManagement = () => {
     // LÓGICA DE CARREGAMENTO DE DADOS (GET)
     // ----------------------------------------------------
     useEffect(() => {
-        // Se não houver token, redireciona para login ou apenas sai
         if (!token) {
             setIsLoading(false);
             navigate('/login'); 
@@ -112,15 +115,14 @@ const ProfileManagement = () => {
         const fetchProfile = async () => {
             try {
                 const response = await axios.get(API_BASE_URL, {
-                    headers: {
-                        'Authorization': `Token ${token}`
-                    }
+                    headers: { 'Authorization': `Token ${token}` }
                 });
                 
                 const apiData = response.data;
-                const profile = apiData.profile || {}; // Garante que profile existe
+                const profile = apiData.profile || {}; 
 
-                // 🚨 Mapeia os dados da API para o estado do formulário e para o Contexto
+                const profilePictureUrl = profile.profile_picture_url || DEFAULT_AVATAR; // Assumindo que o backend retorna a URL da foto
+                
                 setProfileData({
                     email: apiData.email,
                     is_professional: apiData.is_professional,
@@ -133,17 +135,14 @@ const ProfileManagement = () => {
                     cidade: profile.cidade || '',
                     estado: profile.estado || '',
 
-                    // A API retorna o endereço completo no campo 'address'. 
-                    // Se você precisar quebrar em street/number/complement, você precisará de uma função de parse aqui.
                     street: '', 
                     number: '',
                     complement: '', 
                     neighborhood: '',
                     
-                    profilePictureUrl: DEFAULT_AVATAR, 
+                    profilePictureUrl: profilePictureUrl, // Usa a URL real se existir
                 });
 
-                // 🚨 CRÍTICO: Atualiza o contexto global com o status real do backend
                 if(typeof setUserRole === 'function') {
                      setUserRole(apiData.is_professional ? 'Profissional' : 'Cliente');
                 }
@@ -157,18 +156,55 @@ const ProfileManagement = () => {
         };
 
         fetchProfile();
-    }, [token, navigate, setUserRole]); // Dependências
+    }, [token, navigate]); 
+    
+    // ----------------------------------------------------
+    // 🚨 FUNÇÃO 1: UPLOAD DE FOTO DE PERFIL
+    // ----------------------------------------------------
+    const handlePictureUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setProfilePictureFile(file);
+        setApiError(null);
+        
+        // Simulação de pré-visualização imediata
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setProfileData(prev => ({ ...prev, profilePictureUrl: reader.result }));
+        };
+        reader.readAsDataURL(file);
+
+        // Envio para a API
+        const formData = new FormData();
+        formData.append('profile.profile_picture', file); // A chave depende do seu Serializer (pode ser só 'profile_picture')
+
+        try {
+            // Se a API exigir um endpoint separado para upload, ajuste o URL
+            await axios.patch(API_BASE_URL, formData, {
+                headers: {
+                    'Authorization': `Token ${token}`,
+                    // CRÍTICO: Não defina 'Content-Type': 'application/json' com FormData. Axios faz isso automaticamente.
+                }
+            });
+            alert("Foto de perfil atualizada com sucesso!");
+        } catch (error) {
+             setApiError("Erro ao enviar a foto. Tente novamente.");
+             console.error("Erro ao enviar foto:", error.response?.data || error);
+             // Reverte para o avatar anterior em caso de erro
+             setProfileData(prev => ({ ...prev, profilePictureUrl: user?.profilePictureUrl || DEFAULT_AVATAR })); 
+        }
+    };
+
 
     // ----------------------------------------------------
-    // HANDLER DE SUBMISSÃO (PATCH - Salvar Dados Básicos)
+    // FUNÇÃO 2: HANDLER DE SUBMISSÃO (PATCH - Salvar Dados Básicos)
     // ----------------------------------------------------
     const handleSubmit = async (e) => {
         e.preventDefault();
         setIsSaving(true);
         setApiError(null);
         
-        // Combina os campos de endereço do frontend em um campo 'address' se o seu backend
-        // esperar apenas um campo de endereço, ou envie individualmente:
         const addressCombined = `${profileData.street}, ${profileData.number}` + 
                                 (profileData.complement ? ` - ${profileData.complement}` : '') + 
                                 (profileData.neighborhood ? ` - ${profileData.neighborhood}` : '');
@@ -181,22 +217,25 @@ const ProfileManagement = () => {
                 cep: profileData.cep,
                 cidade: profileData.cidade,
                 estado: profileData.estado,
-                // O seu ProfileSerializer precisa aceitar 'address', 'cidade' e 'estado'
-                address: addressCombined // Envia o endereço completo
+                address: addressCombined 
             }
         };
         
-        // Remove campos vazios se o PATCH for parcial
         Object.keys(dataToSend.profile).forEach(key => dataToSend.profile[key] === '' && delete dataToSend.profile[key]);
 
         try {
-            const response = await axios.patch(API_BASE_URL, dataToSend, {
+            await axios.patch(API_BASE_URL, dataToSend, {
                 headers: {
                     'Authorization': `Token ${token}`,
                     'Content-Type': 'application/json'
                 }
             });
-            console.log("Dados salvos:", response.data);
+            
+            // 🚨 CRÍTICO: ATUALIZA O NOME NO CONTEXTO
+            if (typeof setUserName === 'function') {
+                setUserName(profileData.full_name); 
+            }
+            
             alert("Perfil atualizado com sucesso!");
 
         } catch (error) {
@@ -208,15 +247,12 @@ const ProfileManagement = () => {
     };
 
     // ----------------------------------------------------
-    // FUNÇÃO CRÍTICA: TOGGLE ROLE (API CALL)
+    // FUNÇÃO 3: TOGGLE ROLE (API CALL - Inalterada)
     // ----------------------------------------------------
     const toggleRole = async () => {
         if (!token) return;
         
         const newStatus = !isUserProfessional;
-        
-        // 🚨 CRÍTICO: Se estiver mudando para Profissional (true), é bom garantir que os campos
-        // obrigatórios (full_name, cpf, etc.) estejam preenchidos antes de enviar.
         
         try {
             await axios.patch(API_BASE_URL, { is_professional: newStatus }, {
@@ -226,13 +262,16 @@ const ProfileManagement = () => {
                 }
             });
             
-            // 🚨 ATUALIZA O CONTEXTO COM A FUNÇÃO CORRETA
             setUserRole(newStatus ? 'Profissional' : 'Cliente');
-            
-            // Atualiza o estado local
             setProfileData(prev => ({ ...prev, is_professional: newStatus }));
 
             alert(`Status alterado para: ${newStatus ? 'Profissional' : 'Cliente'}!`);
+
+            // 🚨 NOVO PASSO: REDIRECIONAR PARA A TELA DE EDIÇÃO/VISUALIZAÇÃO DO PROFISSIONAL 🚨
+            if (newStatus === true && userId) {
+                // Usa o ID do usuário do AuthContext para montar a URL
+                navigate(`/professional/${userId}`); 
+            }
 
         } catch (error) {
             setApiError(`Falha ao alternar papel.`);
@@ -246,8 +285,6 @@ const ProfileManagement = () => {
         }
     };
     
-    // ... (RESTO DO COMPONENTE JSX) ...
-
     if (isLoading) {
         return (
             <Container className="my-5 text-center">
@@ -257,8 +294,6 @@ const ProfileManagement = () => {
         );
     }
     
-    // ... (RESTO DO COMPONENTE JSX) ...
-
     const nextRole = isUserProfessional ? 'Cliente' : 'Profissional';
     const currentRole = isUserProfessional ? 'Profissional' : 'Cliente';
     const currentRoleIcon = isUserProfessional ? <Briefcase size={20} className="me-2" /> : <User size={20} className="me-2" />;
@@ -273,7 +308,7 @@ const ProfileManagement = () => {
 
             <Row>
                 <Col md={8}>
-                    {/* ... (CARD DE FOTO DE PERFIL - INALTERADO) ... */}
+                    {/* CARD DE FOTO DE PERFIL E NOME */}
                     <Card className="shadow-sm mb-4">
                         <Card.Body className="d-flex align-items-center">
                             <img 
@@ -284,13 +319,14 @@ const ProfileManagement = () => {
                             />
                             <div>
                                 <h5 className="mb-1">{profileData.full_name}</h5>
+                                
+                                {/* 🚨 FUNCIONALIDADE DE EDIÇÃO DE FOTO */}
                                 <label htmlFor="profile-picture-upload" className="btn btn-outline-primary btn-sm mt-1">
                                     <Camera size={16} className="me-1" /> Alterar Foto
                                 </label>
                                 <input 
                                     type="file" id="profile-picture-upload" accept="image/*" 
-                                    // A LÓGICA DE UPLOAD DA FOTO DEVE SER IMPLEMENTADA AQUI
-                                    // onChange={handlePictureUpload}
+                                    onChange={handlePictureUpload} // <--- CHAMA A FUNÇÃO DE UPLOAD
                                     style={{ display: 'none' }} 
                                 />
                             </div>
@@ -400,6 +436,9 @@ const ProfileManagement = () => {
                     {/* SEÇÃO DE DEMANDAS (SÓ PARA CLIENTES) */}
                     {!isUserProfessional && (
                         <MyDemandsSection />
+                        
+                        // 🚨 CARD REMOVIDO: O card de "Profissionais Favoritos" foi removido daqui 
+                        // pois a função já é feita ou referenciada na coluna da direita.
                     )}
 
                     {/* CARD DE CONFIGURAÇÕES DE PROFISSIONAL (SÓ PARA PROFISSIONAIS) */}
@@ -410,7 +449,6 @@ const ProfileManagement = () => {
                             </Card.Header>
                             <Card.Body>
                                 <p>Gerencie suas especialidades, preços e disponibilidade.</p>
-                                {/* USANDO userId do contexto */}
                                 <Button as={Link} to={`/professional/${userId}`} variant="outline-success" className="me-2">
                                     Editar Portfólio
                                 </Button>
@@ -444,6 +482,30 @@ const ProfileManagement = () => {
                         </Card.Body>
                     </Card>
                     
+                    {/* BLOCO 1: PROFISSIONAIS SEGUIDOS (APENAS PARA CLIENTES) */}
+                    {!isUserProfessional && (
+                        <FollowingProfessionalsList />
+                    )}
+                    
+                    {/* BLOCO 2: MENSAGENS (APENAS PARA CLIENTES) */}
+                    {!isUserProfessional && (
+                        <Card className="shadow-sm mb-4">
+                            <Card.Header className="fw-bold bg-light" style={{ color: 'var(--dark-text)' }}>
+                                Comunicação
+                            </Card.Header>
+                            <Card.Body>
+                                <Button 
+                                    as={Link} 
+                                    to="/mensagens" // Rota para o seu ChatWrapper
+                                    variant="warning" 
+                                    className="w-100 fw-bold d-flex justify-content-center align-items-center"
+                                >
+                                    <MessageSquare size={20} className="me-2" /> Minhas Mensagens
+                                </Button>
+                            </Card.Body>
+                        </Card>
+                    )}
+
                     {/* CARD DE SEGURANÇA */}
                     <Card className="shadow-sm mb-4">
                         <Card.Header className="fw-bold bg-light" style={{ color: 'var(--dark-text)' }}>
