@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
-    ''
+    'corsheaders',
 
     'accounts',
     'rest_framework',
@@ -60,6 +60,7 @@ LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -68,6 +69,23 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+
+# settings.py
+
+# Apenas para desenvolvimento (NUNCA em produção, onde você usaria apenas CORS_ALLOWED_ORIGINS)
+CORS_ALLOW_ALL_ORIGINS = False 
+
+# Domínios EXATOS permitidos (onde seu React está rodando)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173", # Porta padrão do Vite/React
+    "http://127.0.0.1:5173",
+    # Se você estiver usando o React/Next.js em outra porta, adicione aqui
+]
+
+# Permite que cookies de autenticação, cabeçalhos e tokens sejam incluídos em requisições CORS
+CORS_ALLOW_CREDENTIALS = True
+
 
 ROOT_URLCONF = 'vagali_project.urls'
 

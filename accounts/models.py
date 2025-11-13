@@ -5,7 +5,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.conf import settings # Mantido por segurança, embora o User seja importado diretamente
+from django.conf import settings 
 
 
 # --- 1. Custom User Manager (Necessário para usar E-mail como login) ---
@@ -72,7 +72,6 @@ class User(AbstractUser):
 # --- 3. Profile Model (Dados adicionais de Cliente/Profissional) ---
 class Profile(models.Model):
     # Relacionamento One-to-One: todo Profile pertence a um User
-    # Usamos a classe User definida acima e related_name='profile'
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     
     # Dados do Cadastro (Geral)
@@ -87,6 +86,13 @@ class Profile(models.Model):
     bio = models.TextField(_('Sobre Mim'), blank=True, null=True)
     address = models.CharField(_('Endereço/Cidade'), max_length=255, blank=True, null=True)
     cnpj = models.CharField(_('CNPJ'), max_length=14, blank=True, null=True, help_text=_('Opcional, para empresas.'))
+    
+    # 🌟 CAMPOS ADICIONADOS PARA CORRIGIR O FIELDERROR 🌟
+    cidade = models.CharField(_('Cidade'), max_length=100, blank=True, null=True)
+    estado = models.CharField(_('Estado (UF)'), max_length=2, blank=True, null=True)
+    servico_principal = models.CharField(_('Serviço Principal'), max_length=100, blank=True, null=True)
+    descricao_servicos = models.TextField(_('Descrição Detalhada dos Serviços'), blank=True, null=True)
+    # 🌟 FIM DOS CAMPOS ADICIONADOS 🌟
     
     # Campo para o profissional listar suas habilidades e tags
     palavras_chave = models.TextField(

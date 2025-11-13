@@ -1,43 +1,62 @@
-import React, { useState, useCallback } from 'react'; 
+import React, { useState, useEffect, useCallback } from 'react'; 
 import { Container, Row, Col, Card, Button, Form, Alert, Spinner, Collapse } from 'react-bootstrap'; 
 import { Link, useNavigate } from 'react-router-dom'; 
 import axios from 'axios'; 
-// Ícones Lucide: Adicionado MessageSquare, LogOut, ChevronDown, ChevronUp
 import { Briefcase, User, Repeat, Settings, ListChecks, MapPin, Camera, Heart, ChevronDown, ChevronUp, MessageSquare, LogOut } from 'lucide-react'; 
 
 import MyDemandsSection from './MyDemandsSection'; 
-import { useAuth } from './AuthContext'; // Certifique-se de que este caminho está correto
+import { useAuth } from './AuthContext'; // CRÍTICO: Importação do contexto
 
+// CONSTANTES E URLS
 const VIACEP_URL = 'https://viacep.com.br/ws/';
+const API_BASE_URL = 'http://127.0.0.1:8000/api/v1/accounts/perfil/me/'; 
 const DEFAULT_AVATAR = 'https://via.placeholder.com/150/007bff/ffffff?text=FOTO';
 
 const ProfileManagement = () => {
     
-    // ESTADOS DE CONTROLE DE COLAPSO
-    const [isInfoCollapsed, setIsInfoCollapsed] = useState(false); 
-
-    // ESTADO DE AUTENTICAÇÃO E DADOS
+    const navigate = useNavigate();
+    
+    // 🚨 CORREÇÃO CRÍTICA: Desestruturando o token e o setUserRole
     const { 
-        userRole, 
-        setUserRole, 
+        token, 
         isUserProfessional, 
-        userId,
-        logout // Função de logout obtida do contexto
+        setUserRole, // <--- Usando a função correta do contexto
+        logout,
+        userId // Opcional, para linkar a ProfessionalProfileView
     } = useAuth(); 
 
-    // ESTADO DO FORMULÁRIO
-    const [profileData, setProfileData] = useState({
-        fullName: "Usuário Teste Vagali", email: "teste@vagali.com", phone: "(99) 99999-9999",
-        profilePictureUrl: DEFAULT_AVATAR, 
-        cep: "20000000", street: "Rua do Teste", number: "100", complement: "Apto 101", 
-        neighborhood: "Centro", city: "Rio de Janeiro", state: "RJ", 
-    });
-    
+    // ESTADOS DE CONTROLE
+    const [isInfoCollapsed, setIsInfoCollapsed] = useState(false); 
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true); 
+    const [apiError, setApiError] = useState(null);
     const [cepLoading, setCepLoading] = useState(false);
     const [cepError, setCepError] = useState(null);
 
-    // LÓGICA DE BUSCA DO CEP
+    // 🚨 ESTADO DO FORMULÁRIO (MATCHING BACKEND SERIALIZER FIELDS)
+    const [profileData, setProfileData] = useState({
+        // DADOS DO USER
+        email: '', 
+        is_professional: false,
+        // DADOS DO PROFILE
+        full_name: '', 
+        phone_number: '', 
+        cpf: '',
+        bio: '',
+        cep: '', 
+        cidade: '', 
+        estado: '', 
+        // Campos de Endereço (temporários/frontend-side, combinados em 'address' se necessário)
+        street: '', 
+        number: '', 
+        complement: '', 
+        neighborhood: '', 
+        profilePictureUrl: DEFAULT_AVATAR, 
+    });
+
+    // ----------------------------------------------------
+    // LÓGICA DE BUSCA DO CEP (Inalterada)
+    // ----------------------------------------------------
     const fetchAddressByCep = useCallback(async (cep) => {
         const cleanedCep = cep.replace(/\D/g, '');
         if (cleanedCep.length !== 8) {
@@ -51,14 +70,14 @@ const ProfileManagement = () => {
             const data = response.data;
             if (data.erro) {
                 setCepError("CEP não encontrado.");
-                setProfileData(prev => ({ ...prev, street: '', neighborhood: '', city: '', state: '', }));
+                setProfileData(prev => ({ ...prev, street: '', neighborhood: '', cidade: '', estado: '', })); 
             } else {
                 setProfileData(prev => ({
                     ...prev,
                     street: data.logradouro || '',
                     neighborhood: data.bairro || '',
-                    city: data.localidade || '',
-                    state: data.uf || '',
+                    cidade: data.localidade || '', 
+                    estado: data.uf || '',         
                 }));
             }
         } catch (error) {
@@ -68,7 +87,6 @@ const ProfileManagement = () => {
         }
     }, []);
 
-    // HANDLERS DE INPUT
     const handleChange = (e) => {
         const { name, value } = e.target;
         setProfileData(prev => ({ ...prev, [name]: value, }));
@@ -80,61 +98,182 @@ const ProfileManagement = () => {
         }
     };
     
-    // HANDLER: Upload de Foto
-    const handlePictureUpload = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            const newUrl = URL.createObjectURL(file);
-            setProfileData(prev => ({ ...prev, profilePictureUrl: newUrl }));
-            alert("Foto de perfil selecionada. Lembre-se de salvar o perfil!");
-        }
-    };
-
-    // HANDLER DE SUBMISSÃO (Simulação)
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        setIsSaving(true);
-        setCepError(null); 
-        
-        setTimeout(() => {
-            setIsSaving(false);
-            console.log("Dados salvos:", profileData);
-            alert("Perfil atualizado com sucesso!");
-        }, 1500);
-    };
-
-    // FUNÇÃO DE LOGOUT
-    const handleLogout = () => {
-        if (typeof logout === 'function') {
-            logout(); // Chama a função de logout do AuthContext
-        } else {
-            console.error("Função de logout não está disponível no AuthContext.");
-        }
-    };
-
-    // FUNÇÕES DE CONTEXTO (TOGGLE ROLE)
-    const toggleRole = () => {
-        const newRole = userRole === 'Profissional' ? 'Cliente' : 'Profissional';
-        if (typeof setUserRole !== 'function') {
-            console.error("ERRO CRÍTICO: A função setUserRole não está disponível no contexto.");
+    // ----------------------------------------------------
+    // LÓGICA DE CARREGAMENTO DE DADOS (GET)
+    // ----------------------------------------------------
+    useEffect(() => {
+        // Se não houver token, redireciona para login ou apenas sai
+        if (!token) {
+            setIsLoading(false);
+            navigate('/login'); 
             return; 
         }
-        setUserRole(newRole); 
+
+        const fetchProfile = async () => {
+            try {
+                const response = await axios.get(API_BASE_URL, {
+                    headers: {
+                        'Authorization': `Token ${token}`
+                    }
+                });
+                
+                const apiData = response.data;
+                const profile = apiData.profile || {}; // Garante que profile existe
+
+                // 🚨 Mapeia os dados da API para o estado do formulário e para o Contexto
+                setProfileData({
+                    email: apiData.email,
+                    is_professional: apiData.is_professional,
+                    
+                    full_name: profile.full_name || '',
+                    phone_number: profile.phone_number || '',
+                    cpf: profile.cpf || '',
+                    bio: profile.bio || '',
+                    cep: profile.cep || '', 
+                    cidade: profile.cidade || '',
+                    estado: profile.estado || '',
+
+                    // A API retorna o endereço completo no campo 'address'. 
+                    // Se você precisar quebrar em street/number/complement, você precisará de uma função de parse aqui.
+                    street: '', 
+                    number: '',
+                    complement: '', 
+                    neighborhood: '',
+                    
+                    profilePictureUrl: DEFAULT_AVATAR, 
+                });
+
+                // 🚨 CRÍTICO: Atualiza o contexto global com o status real do backend
+                if(typeof setUserRole === 'function') {
+                     setUserRole(apiData.is_professional ? 'Profissional' : 'Cliente');
+                }
+
+            } catch (error) {
+                setApiError("Falha ao carregar dados do perfil. Tente recarregar a página.");
+                console.error("Erro ao buscar perfil:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchProfile();
+    }, [token, navigate, setUserRole]); // Dependências
+
+    // ----------------------------------------------------
+    // HANDLER DE SUBMISSÃO (PATCH - Salvar Dados Básicos)
+    // ----------------------------------------------------
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        setApiError(null);
+        
+        // Combina os campos de endereço do frontend em um campo 'address' se o seu backend
+        // esperar apenas um campo de endereço, ou envie individualmente:
+        const addressCombined = `${profileData.street}, ${profileData.number}` + 
+                                (profileData.complement ? ` - ${profileData.complement}` : '') + 
+                                (profileData.neighborhood ? ` - ${profileData.neighborhood}` : '');
+        
+        const dataToSend = {
+            profile: {
+                full_name: profileData.full_name,
+                phone_number: profileData.phone_number,
+                cpf: profileData.cpf,
+                cep: profileData.cep,
+                cidade: profileData.cidade,
+                estado: profileData.estado,
+                // O seu ProfileSerializer precisa aceitar 'address', 'cidade' e 'estado'
+                address: addressCombined // Envia o endereço completo
+            }
+        };
+        
+        // Remove campos vazios se o PATCH for parcial
+        Object.keys(dataToSend.profile).forEach(key => dataToSend.profile[key] === '' && delete dataToSend.profile[key]);
+
+        try {
+            const response = await axios.patch(API_BASE_URL, dataToSend, {
+                headers: {
+                    'Authorization': `Token ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            console.log("Dados salvos:", response.data);
+            alert("Perfil atualizado com sucesso!");
+
+        } catch (error) {
+            setApiError("Erro ao salvar alterações. Verifique os dados.");
+            console.error("Erro ao salvar perfil:", error.response?.data || error);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // ----------------------------------------------------
+    // FUNÇÃO CRÍTICA: TOGGLE ROLE (API CALL)
+    // ----------------------------------------------------
+    const toggleRole = async () => {
+        if (!token) return;
+        
+        const newStatus = !isUserProfessional;
+        
+        // 🚨 CRÍTICO: Se estiver mudando para Profissional (true), é bom garantir que os campos
+        // obrigatórios (full_name, cpf, etc.) estejam preenchidos antes de enviar.
+        
+        try {
+            await axios.patch(API_BASE_URL, { is_professional: newStatus }, {
+                headers: {
+                    'Authorization': `Token ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            // 🚨 ATUALIZA O CONTEXTO COM A FUNÇÃO CORRETA
+            setUserRole(newStatus ? 'Profissional' : 'Cliente');
+            
+            // Atualiza o estado local
+            setProfileData(prev => ({ ...prev, is_professional: newStatus }));
+
+            alert(`Status alterado para: ${newStatus ? 'Profissional' : 'Cliente'}!`);
+
+        } catch (error) {
+            setApiError(`Falha ao alternar papel.`);
+            console.error("Erro ao alternar papel:", error.response?.data || error);
+        }
     };
     
-    const nextRole = userRole === 'Profissional' ? 'Cliente' : 'Profissional';
-    const currentRoleIcon = isUserProfessional ? <Briefcase size={20} className="me-2" /> : <User size={20} className="me-2" />;
+    const handleLogout = () => {
+        if (typeof logout === 'function') {
+            logout(); 
+        }
+    };
+    
+    // ... (RESTO DO COMPONENTE JSX) ...
 
+    if (isLoading) {
+        return (
+            <Container className="my-5 text-center">
+                <Spinner animation="border" role="status" className="text-primary"/>
+                <p className="mt-2">Carregando dados do perfil...</p>
+            </Container>
+        );
+    }
+    
+    // ... (RESTO DO COMPONENTE JSX) ...
+
+    const nextRole = isUserProfessional ? 'Cliente' : 'Profissional';
+    const currentRole = isUserProfessional ? 'Profissional' : 'Cliente';
+    const currentRoleIcon = isUserProfessional ? <Briefcase size={20} className="me-2" /> : <User size={20} className="me-2" />;
+    
     return (
         <Container className="my-5">
             <h1 className="mb-4 d-flex align-items-center" style={{ color: 'var(--primary-color)' }}>
                 <Settings size={32} className="me-2" /> Gerenciamento de Perfil
             </h1>
             
+            {apiError && <Alert variant="danger">{apiError}</Alert>}
+
             <Row>
                 <Col md={8}>
-                    
-                    {/* CARD DE FOTO DE PERFIL */}
+                    {/* ... (CARD DE FOTO DE PERFIL - INALTERADO) ... */}
                     <Card className="shadow-sm mb-4">
                         <Card.Body className="d-flex align-items-center">
                             <img 
@@ -144,13 +283,15 @@ const ProfileManagement = () => {
                                 style={{ width: '80px', height: '80px', objectFit: 'cover', border: '2px solid #007bff' }}
                             />
                             <div>
-                                <h5 className="mb-1">{profileData.fullName}</h5>
+                                <h5 className="mb-1">{profileData.full_name}</h5>
                                 <label htmlFor="profile-picture-upload" className="btn btn-outline-primary btn-sm mt-1">
                                     <Camera size={16} className="me-1" /> Alterar Foto
                                 </label>
                                 <input 
                                     type="file" id="profile-picture-upload" accept="image/*" 
-                                    onChange={handlePictureUpload} style={{ display: 'none' }} 
+                                    // A LÓGICA DE UPLOAD DA FOTO DEVE SER IMPLEMENTADA AQUI
+                                    // onChange={handlePictureUpload}
+                                    style={{ display: 'none' }} 
                                 />
                             </div>
                         </Card.Body>
@@ -158,7 +299,6 @@ const ProfileManagement = () => {
 
                     {/* CARD DE INFORMAÇÕES BÁSICAS - COM COLAPSO */}
                     <Card className="shadow-sm mb-4">
-                        {/* HEADER COM BOTÃO DE COLAPSO */}
                         <Card.Header 
                             className="fw-bold bg-light d-flex justify-content-between align-items-center" 
                             style={{ color: 'var(--dark-text)', cursor: 'pointer' }}
@@ -170,7 +310,6 @@ const ProfileManagement = () => {
                             {isInfoCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
                         </Card.Header>
                         
-                        {/* CORPO DO CARD WRAPADO PELO COLLAPSE */}
                         <Collapse in={!isInfoCollapsed}>
                             <div id="info-collapse-body">
                                 <Card.Body>
@@ -181,7 +320,7 @@ const ProfileManagement = () => {
                                         <Row className="mb-3">
                                             <Col md={6}>
                                                 <Form.Label>Nome Completo</Form.Label>
-                                                <Form.Control type="text" name="fullName" value={profileData.fullName} onChange={handleChange} required />
+                                                <Form.Control type="text" name="full_name" value={profileData.full_name} onChange={handleChange} required />
                                             </Col>
                                             <Col md={6}>
                                                 <Form.Label>Email</Form.Label>
@@ -195,7 +334,11 @@ const ProfileManagement = () => {
                                         </Row>
                                         <Form.Group className="mb-4">
                                             <Form.Label>Telefone</Form.Label>
-                                            <Form.Control type="text" name="phone" value={profileData.phone} onChange={handleChange} />
+                                            <Form.Control type="text" name="phone_number" value={profileData.phone_number} onChange={handleChange} />
+                                        </Form.Group>
+                                        <Form.Group className="mb-4">
+                                            <Form.Label>CPF</Form.Label>
+                                            <Form.Control type="text" name="cpf" value={profileData.cpf} onChange={handleChange} maxLength={11} required />
                                         </Form.Group>
 
                                         {/* DADOS DE ENDEREÇO */}
@@ -229,14 +372,14 @@ const ProfileManagement = () => {
                                         <Row className="mb-3">
                                             <Col md={4}>
                                                 <Form.Label>Cidade</Form.Label>
-                                                <Form.Control type="text" name="city" value={profileData.city} onChange={handleChange} disabled={cepLoading} required />
+                                                <Form.Control type="text" name="cidade" value={profileData.cidade} onChange={handleChange} disabled={cepLoading} required />
                                             </Col>
                                             <Col md={2}>
                                                 <Form.Label>Estado (UF)</Form.Label>
-                                                <Form.Control type="text" name="state" value={profileData.state} onChange={handleChange} disabled={cepLoading} maxLength={2} required />
+                                                <Form.Control type="text" name="estado" value={profileData.estado} onChange={handleChange} disabled={cepLoading} maxLength={2} required />
                                             </Col>
                                             <Col md={3}>
-                                                <Form.Label>Número</Form.Label> {/* 🎯 CORREÇÃO: Certificando que a tag de fechamento é </Form.Label> na próxima linha */}
+                                                <Form.Label>Número</Form.Label>
                                                 <Form.Control type="text" name="number" value={profileData.number} onChange={handleChange} placeholder="Obrigatório" required />
                                             </Col>
                                             <Col md={3}>
@@ -267,6 +410,7 @@ const ProfileManagement = () => {
                             </Card.Header>
                             <Card.Body>
                                 <p>Gerencie suas especialidades, preços e disponibilidade.</p>
+                                {/* USANDO userId do contexto */}
                                 <Button as={Link} to={`/professional/${userId}`} variant="outline-success" className="me-2">
                                     Editar Portfólio
                                 </Button>
@@ -286,41 +430,20 @@ const ProfileManagement = () => {
                         <Card.Body>
                             <h5 className="mb-3">Seu Papel Atual:</h5>
                             <Alert variant={isUserProfessional ? "info" : "warning"} className="fw-bold d-flex justify-content-center align-items-center">
-                                {currentRoleIcon} {userRole}
+                                {currentRoleIcon} {currentRole}
                             </Alert>
-                            <p className="small text-muted">Use este controle para simular a mudança de papel do usuário.</p>
-                            <Button variant="primary" className="w-100 mt-2 fw-bold d-flex justify-content-center align-items-center" onClick={toggleRole}>
+                            <p className="small text-muted">Mude seu papel para Cliente ou Profissional.</p>
+                            <Button 
+                                variant="primary" 
+                                className="w-100 mt-2 fw-bold d-flex justify-content-center align-items-center" 
+                                onClick={toggleRole} 
+                            >
                                 <Repeat size={18} className="me-2" />
                                 Mudar para: {nextRole}
                             </Button>
                         </Card.Body>
                     </Card>
                     
-                    {/* CARD DE PROFISSIONAIS SEGUIDOS (SÓ PARA CLIENTES) */}
-                    {!isUserProfessional && (
-                        <Card className="shadow-sm mb-4 border-info">
-                            <Card.Body className="d-grid gap-2">
-                                <Button as={Link} to="/profissionais-seguidos" variant="outline-info" className="fw-bold">
-                                    <Heart size={20} className="me-2" /> Profissionais Seguidos
-                                </Button>
-                            </Card.Body>
-                        </Card>
-                    )}
-
-                    {/* NOVO: CARD DE MENSAGENS / CHAT */}
-                    <Card className="shadow-lg mb-4 border-success">
-                        <Card.Body className="d-grid gap-2">
-                            <Button 
-                                as={Link} 
-                                to="/chat" 
-                                variant="success" 
-                                className="fw-bold"
-                            >
-                                <MessageSquare size={20} className="me-2" /> Minhas Mensagens
-                            </Button>
-                        </Card.Body>
-                    </Card>
-
                     {/* CARD DE SEGURANÇA */}
                     <Card className="shadow-sm mb-4">
                         <Card.Header className="fw-bold bg-light" style={{ color: 'var(--dark-text)' }}>
@@ -330,11 +453,10 @@ const ProfileManagement = () => {
                             <Button as={Link} to="/change-password" variant="danger" className="w-100">
                                 Mudar Senha
                             </Button>
-                            {/* BOTÃO SAIR CORRIGIDO */}
                             <Button 
                                 variant="outline-danger" 
                                 className="w-100 d-flex justify-content-center align-items-center mt-2 fw-bold"
-                                onClick={handleLogout} // Chama a função de logout
+                                onClick={handleLogout} 
                             >
                                 <LogOut size={20} className="me-2" /> Sair da Conta
                             </Button>
