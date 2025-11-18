@@ -5,7 +5,7 @@ from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from .models import User, Profile
 
 # --- 1. Formulário SIMPLIFICADO para ADIÇÃO de Usuários no ADMIN ---
-# (Formulário usado pela classe UserAdmin.add_form)
+# Esta classe é requerida por accounts/admin.py
 class AdminUserCreationForm(UserCreationForm):
     class Meta:
         model = User
@@ -14,12 +14,12 @@ class AdminUserCreationForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Remove campo 'username' herdado, que não existe no seu modelo User
+        # Remove campo 'username' herdado
         if 'username' in self.fields:
             del self.fields['username']
 
 # --- 2. Formulário para EDIÇÃO de Usuários no ADMIN ---
-# (Formulário usado pela classe UserAdmin.form)
+# Esta classe também é requerida por accounts/admin.py
 class ClientProfessionalChangeForm(UserChangeForm):
     class Meta:
         model = User
@@ -28,7 +28,7 @@ class ClientProfessionalChangeForm(UserChangeForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Remove campos padrão (username, first_name, last_name) que não existem no seu User customizado
+        # Remove campos padrão (username, first_name, last_name)
         if 'username' in self.fields:
             del self.fields['username']
         if 'first_name' in self.fields:
@@ -36,15 +36,14 @@ class ClientProfessionalChangeForm(UserChangeForm):
         if 'last_name' in self.fields:
              del self.fields['last_name']
              
-
 # --- 3. Formulário COMPLEXO para a API de Cadastro (Front-end) ---
-# Mantenha este se você o usa na sua view de cadastro (CadastroView)
+# Este formulário é usado pela sua API de cadastro (/api/v1/accounts/register/)
 class ClientProfessionalCreationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ('email', 'is_professional')
         
-    # Campos do Profile que são tratados aqui, e não no Admin
+    # Campos do Profile que são exigidos no cadastro do frontend
     full_name = forms.CharField(label='Nome Completo', max_length=255)
     cpf = forms.CharField(label='CPF', max_length=11)
     phone_number = forms.CharField(label='Telefone (com DDD)', max_length=15, required=False)
@@ -56,11 +55,23 @@ class ClientProfessionalCreationForm(UserCreationForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
+        
+        # 🚨 CORREÇÃO CRÍTICA DO HASH DE SENHA 🚨
+        # Este passo garante que a senha seja criptografada no banco de dados.
+        password = self.cleaned_data.get("password")
+        if password:
+             user.set_password(password)
+        # FIM DA CORREÇÃO
+        
         if commit:
             user.save()
-            user.profile.full_name = self.cleaned_data.get('full_name')
-            user.profile.cpf = self.cleaned_data.get('cpf')
-            user.profile.phone_number = self.cleaned_data.get('phone_number')
-            user.profile.save()
+            
+            # Garante que o Profile existe (criado pelo signal) e atualiza seus campos
+            if hasattr(user, 'profile'):
+                user.profile.full_name = self.cleaned_data.get('full_name')
+                user.profile.cpf = self.cleaned_data.get('cpf')
+                user.profile.phone_number = self.cleaned_data.get('phone_number')
+                # Os campos extras (bio, address, cnpj) virão no serializer, não no form
+                user.profile.save()
             
         return user

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Container, Card, Form, Button, Alert, Spinner, Row, Col } from 'react-bootstrap';
+import { Container, Card, Form, Button, Alert, Spinner, Row, Col, Collapse } from 'react-bootstrap'; // 🚨 IMPORTAÇÃO CORRIGIDA
 import axios from 'axios'; 
 
 function Register() {
@@ -23,7 +23,7 @@ function Register() {
     const [loading, setLoading] = useState(false);
 
     // Endpoint de Cadastro customizado
-    // 🚨 CORREÇÃO CRÍTICA: Usando o endpoint correto
+    // MANTIDO: URL Completa para garantir que não haja problemas de proxy/config
     const REGISTER_URL = 'http://127.0.0.1:8000/api/v1/accounts/register/'; 
 
     const handleChange = (e) => {
@@ -66,7 +66,7 @@ function Register() {
             payload.bio = formData.bio;
             payload.address = formData.address;
             payload.cnpj = formData.cnpj;
-            // O backend deve lidar com a criação do Profile com esses dados
+            // O backend (forms.py) está configurado para receber estes campos
         }
 
         try {
@@ -74,14 +74,16 @@ function Register() {
             console.log("Cadastro bem-sucedido:", response.data);
             
             alert('Cadastro realizado com sucesso! Faça login para continuar.');
-            navigate('/login'); // 🚨 Redireciona após o cadastro
+            navigate('/login'); // Redireciona após o cadastro
             
         } catch (err) {
             const errorData = err.response?.data;
             let errorMessage = 'Erro no servidor. Tente novamente.';
 
-            if (errorData) {
-                // Tenta extrair mensagens de erro do backend (validação do serializer)
+            if (err.code === 'ERR_NETWORK') {
+                errorMessage = 'Erro de conexão com o servidor. O Django está rodando na porta 8000?';
+            } else if (errorData) {
+                // Tenta extrair mensagens de erro do backend (validação do serializer/form)
                 if (errorData.email) {
                     errorMessage = `Email: ${errorData.email[0]}`;
                 } else if (errorData.password2) {
@@ -90,8 +92,10 @@ function Register() {
                     errorMessage = `CPF: ${errorData.cpf[0]}`;
                 } else if (errorData.is_professional) {
                     errorMessage = `Profissional: ${errorData.is_professional[0]}`;
+                } else if (typeof errorData === 'object') {
+                    // Trata outros erros de validação genéricos
+                    errorMessage = `Erro de validação: ${Object.values(errorData)[0]}`;
                 }
-                // Adicione mais verificações para outros campos, se necessário.
             }
             
             setError(errorMessage);
@@ -227,4 +231,4 @@ function Register() {
     );
 }
 
-export default Register;    
+export default Register;

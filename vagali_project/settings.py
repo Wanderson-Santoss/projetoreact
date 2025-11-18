@@ -59,6 +59,14 @@ AUTH_USER_MODEL = 'accounts.User'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/'
 
+# 🚨 4. CRÍTICO: Configuração do Backend de Autenticação
+# Garante que o Django saiba como autenticar um usuário customizado pelo campo correto (email)
+AUTHENTICATION_BACKENDS = [
+    # 🚨 CORREÇÃO: Adiciona o backend customizado para login por email
+    'accounts.backends.EmailBackend', 
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
@@ -177,4 +185,6 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': (
         'rest_framework.filters.SearchFilter', # Adiciona a funcionalidade de busca
     ),
+
+    
 }

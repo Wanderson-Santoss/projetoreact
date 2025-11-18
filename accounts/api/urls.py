@@ -12,7 +12,7 @@ from accounts.views import CadastroView
 router = DefaultRouter()
 
 router.register(r'perfil', ProfileViewSet, basename='perfil') 
-router.register(r'profissionais', ProfessionalViewSet, basename='profissionais')
+router.register(r'profissionais', ProfessionalViewSet, basename='profissionais') # 🚨 Rota corrigida!
 
 urlpatterns = [
     # ROTA DE CADASTRO CORRIGIDA: Usa CadastroView (resolve o 404)

@@ -1,284 +1,621 @@
-import React, { useState, useEffect, useCallback } from 'react'; 
-import axios from 'axios';
-import { useParams, Link, useNavigate } from 'react-router-dom'; 
-import { Container, Row, Col, Card, Button, Spinner, Alert, Form, Badge } from 'react-bootstrap'; 
-import { Star, CalendarCheck, Share2, MessageSquare, MapPin, Zap, AlertTriangle, Pencil, Camera, Trash2, Edit } from 'lucide-react';
-import { useAuth } from './AuthContext'; 
+import React, { useState, useEffect, useCallback, createContext } from 'react'; 
+import { Container, Row, Col, Card, Button, Form, Alert, Spinner, Collapse, Pagination } from 'react-bootstrap'; 
+import { Link, useNavigate } from 'react-router-dom'; 
+import axios from 'axios'; 
+import { Briefcase, User, Repeat, Settings, ListChecks, MapPin, Camera, ChevronDown, ChevronUp, MessageSquare, LogOut, Heart } from 'lucide-react'; 
 
-// Endpoint para buscar/atualizar o perfil do profissional
-const BASE_PROFILE_URL = 'http://127.00.0.1:8000/api/v1/accounts/profissionais/';
-const DEFAULT_AVATAR = 'https://via.placeholder.com/150/007bff/ffffff?text=NP';
+// ====================================================================
+// MOCK DE DEPENDÊNCIAS (Para o ambiente de arquivo único)
+// ====================================================================
 
-// --- SIMULAÇÃO DE DADOS INICIAIS ---
-const initialPortfolioMedia = [
-    { id: 1, label: 'Cozinha', url: 'https://via.placeholder.com/400/ffb564/000000?text=Projeto+1' },
-    { id: 2, label: 'Banheiro', url: 'https://via.placeholder.com/400/8d8a86/ffffff?text=Projeto+2' },
-    { id: 3, label: 'Sala', url: 'https://via.placeholder.com/400/98df98/000000?text=Projeto+3' },
-    // ... mais itens
-];
+// 1. MOCK: AuthContext (Simulação de Autenticação)
+const AuthContext = createContext();
 
-const initialDemands = {
-    active: [
-        { id: 1, title: "Instalação de Luminárias", status: "Em Andamento" },
-        { id: 2, title: "Reparo de Vazamento", status: "Aguardando Resposta" },
-    ],
-    completed: [
-        { id: 3, title: "Pintura de Sala", status: "Concluída" },
-    ]
+const useAuth = () => {
+    // Retorna valores mockados que o ProfessionalProfileView usa:
+    return {
+        // Mock Token/User para que o fetchProfile não falhe imediatamente
+        token: 'mock-auth-token-123',
+        isUserProfessional: false,
+        user: { email: 'user@example.com', id: 'mockUserId123' },
+        userId: 'mockUserId123',
+        
+        // Funções mockadas (para evitar erros de 'is not a function')
+        setUserRole: (isPro) => console.log(`[MOCK] Set user role to: ${isPro}`),
+        logout: () => alert("Logout mockado!"),
+        setUserName: (name) => console.log(`[MOCK] Set user name to: ${name}`),
+    };
 };
 
+// 2. MOCK: FollowingProfessionalsList (Profissionais Seguidos)
+const FollowingProfessionalsList = () => (
+    <Card className="shadow-sm mb-4">
+        <Card.Header className="fw-bold bg-light d-flex align-items-center" style={{ color: 'var(--dark-text)' }}>
+            <Heart size={20} className="me-2 text-danger"/> Profissionais Seguidos
+        </Card.Header>
+        <Card.Body>
+            <p className="small text-muted">Esta é uma lista mockada. Não há profissionais seguidos (mock).</p>
+            <Button variant="outline-primary" className="w-100" as={Link} to="/search-professionals">
+                Encontrar Profissionais
+            </Button>
+        </Card.Body>
+    </Card>
+);
 
-const ProfessionalProfileView = () => {
+// 3. MOCK: MyDemandsSection (Minhas Demandas)
+const MyDemandsSection = ({ currentPage, itemsPerPage }) => (
+    <Card className="shadow-sm mb-4">
+        <Card.Header className="fw-bold bg-light d-flex align-items-center" style={{ color: 'var(--dark-text)' }}>
+            <ListChecks size={20} className="me-2 text-primary"/> Minhas Demandas (Mock)
+        </Card.Header>
+        <Card.Body>
+            <p>Exibindo demandas de {((currentPage - 1) * itemsPerPage) + 1} a {currentPage * itemsPerPage}.</p>
+            <Alert variant="info" className="small">
+                A lógica real de listagem de demandas seria implementada aqui.
+            </Alert>
+            <Button as={Link} to="/create-demand" variant="primary">
+                Criar Nova Demanda
+            </Button>
+        </Card.Body>
+    </Card>
+);
+
+// ====================================================================
+// COMPONENTE PRINCIPAL
+// ====================================================================
+
+// CONSTANTES E URLS
+const VIACEP_URL = 'https://viacep.com.br/ws/';
+const API_BASE_URL = '/api/v1/accounts/perfil/me/'; 
+const DEFAULT_AVATAR = 'https://via.placeholder.com/150/007bff/ffffff?text=FOTO';
+
+const ProfessionalProfileView = () => { 
     
-    // 1. OBTENDO DADOS DO CONTEXTO E URL
-    const { id } = useParams(); // ID do perfil na URL (string)
     const navigate = useNavigate();
-    const { userId, isAuthenticated, token, user } = useAuth(); // userId é o ID do usuário logado
     
-    // 🚨 CÁLCULO CRÍTICO: ID do logado (e.g., 2) vs ID na URL (e.g., 2 ou 3)
-    const isOwner = isAuthenticated && (String(userId) === String(id)); 
+    // USANDO O HOOK MOCKADO
+    const { 
+        token, 
+        setUserRole, 
+        logout,
+        user,
+        setUserName
+    } = useAuth(); 
 
-    // ESTADOS
-    const [profileData, setProfileData] = useState({ 
-        full_name: 'TESTE PROFISSIONAL',
-        main_service: 'Serviço Principal', 
-        city: 'Cidade não Informada',
-        state: 'Estado',
-        rating: 4.8, 
-        reviews_count: 5, 
-        satisfaction: 96,
-        demands_count: 42,
-        status: 'Ativo',
-        bio: 'Nenhuma descrição detalhada fornecida ainda. Aqui será exibida a formação, experiência e CNPJ, se fornecidos.',
-        cnpj: 'CNPJ: Não Informado',
-        specialties: [], 
-        profilePictureUrl: DEFAULT_AVATAR,
-    });
-    const [portfolioMedia, setPortfolioMedia] = useState(initialPortfolioMedia);
-    const [isLoading, setIsLoading] = useState(true);
+    // ESTADOS DE CONTROLE
+    const [isInfoCollapsed, setIsInfoCollapsed] = useState(false); 
     const [isSaving, setIsSaving] = useState(false);
+    const [isLoading, setIsLoading] = useState(true); 
     const [apiError, setApiError] = useState(null);
-    const [isEditMode, setIsEditMode] = useState(false);
-    const [demandsStatus, setDemandsStatus] = useState('active'); 
+    const [cepLoading, setCepLoading] = useState(false);
+    const [cepError, setCepError] = useState(null);
+    const [profilePictureFile, setProfilePictureFile] = useState(null);
+    
+    // Bloqueia re-fetch após a navegação para perfil nulo
+    const [isNavigating, setIsNavigating] = useState(false); 
+    
+    // NOVO ESTADO CRÍTICO PARA QUEBRAR O LOOP 200
+    const [isProfileFetched, setIsProfileFetched] = useState(false); 
 
-    // LÓGICA DE CARREGAMENTO DE DADOS (GET)
-    const fetchProfile = useCallback(async () => {
-        setIsLoading(true);
-        setApiError(null);
+    // ESTADOS PARA PAGINAÇÃO
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 5; 
+    const [totalDemands, setTotalDemands] = useState(23); // Substitua 23 pela contagem real
+    
+    // Calcula o número total de páginas
+    const totalPages = Math.ceil(totalDemands / itemsPerPage);
+    
+    // ESTADO DO FORMULÁRIO (MATCHING BACKEND SERIALIZER FIELDS)
+    const [profileData, setProfileData] = useState({
+        // DADOS DO USER
+        email: '', 
+        is_professional: false,
+        // DADOS DO PROFILE
+        full_name: '', 
+        phone_number: '', 
+        cpf: '',
+        bio: '',
+        cep: '', 
+        cidade: '', 
+        estado: '', 
+        // Campos de Endereço (temporários/frontend-side)
+        street: '', 
+        number: '', 
+        complement: '', 
+        neighborhood: '', 
+        profilePictureUrl: DEFAULT_AVATAR, 
+    });
+
+    // ----------------------------------------------------
+    // LÓGICA DE PAGINAÇÃO (Mantida dentro do escopo)
+    // ----------------------------------------------------
+    const handlePageChange = (pageNumber) => {
+        if (pageNumber < 1 || pageNumber > totalPages) return;
+        setCurrentPage(pageNumber);
+    };
+
+    // A função renderPagination FOI REMOVIDA
+    // ----------------------------------------------------
+    // FIM DA LÓGICA DE PAGINAÇÃO
+    // ----------------------------------------------------
+
+    // ----------------------------------------------------
+    // LÓGICA DE BUSCA DO CEP
+    // ----------------------------------------------------
+    const fetchAddressByCep = useCallback(async (cep) => {
+        const cleanedCep = cep.replace(/\D/g, '');
+        if (cleanedCep.length !== 8) {
+            setCepError(null);
+            return;
+        }
+        setCepLoading(true);
+        setCepError(null);
+        
+        // Mock de Requisição: Simula a busca de endereço para que a UI funcione
         try {
-            const response = await axios.get(`${BASE_PROFILE_URL}${id}/`, {
-                headers: isAuthenticated && token ? { 'Authorization': `Token ${token}` } : {}
-            });
+             // Mock de atraso e resultado de sucesso
+            await new Promise(resolve => setTimeout(resolve, 500)); 
 
-            const apiData = response.data;
-            setProfileData({
-                full_name: apiData.user.full_name || 'Nome do Profissional',
-                main_service: apiData.main_service || 'Serviço Principal', 
-                city: apiData.city || 'Cidade não Informada',
-                state: apiData.state || 'Estado',
-                rating: apiData.rating || 0, 
-                reviews_count: apiData.reviews_count || 0, 
-                satisfaction: apiData.satisfaction || 0,
-                demands_count: apiData.demands_count || 0,
-                status: apiData.status || 'Ativo',
-                bio: apiData.bio || 'Nenhuma descrição detalhada fornecida ainda. Aqui será exibida a formação, experiência e CNPJ, se fornecidos.',
-                cnpj: apiData.cnpj || 'CNPJ: Não Informado',
-                specialties: apiData.specialties || [],
-                profilePictureUrl: apiData.profile_picture_url || DEFAULT_AVATAR,
-            });
-            setPortfolioMedia(apiData.portfolio_media || initialPortfolioMedia);
+            setProfileData(prev => ({
+                ...prev,
+                street: 'Rua Mockada',
+                neighborhood: 'Bairro Teste',
+                cidade: 'Cidade Mock', 
+                estado: 'ST', 
+            }));
             
         } catch (error) {
-             if (error.response && error.response.status === 404) {
-                 setApiError("Perfil de profissional não encontrado.");
-            } else {
-                 setApiError("Erro ao carregar dados do perfil.");
-            }
+            setCepError("Erro ao buscar CEP (Mock).");
         } finally {
-            setIsLoading(false);
+            setCepLoading(false);
         }
-    }, [id, isAuthenticated, token]); 
-    
-    useEffect(() => {
-        if (id) {
-            fetchProfile();
-        }
-    }, [id, fetchProfile]); 
-    
-    // Handlers de Edição (Omitido para brevidade)
-    const handleEditChange = (e) => {
+    }, []);
+
+    const handleChange = (e) => {
         const { name, value } = e.target;
-        setProfileData(prev => ({ ...prev, [name]: value }));
+        setProfileData(prev => ({ ...prev, [name]: value, }));
+
+        if (name === 'cep') {
+            if (value.replace(/\D/g, '').length === 8) {
+                fetchAddressByCep(value);
+            }
+        }
     };
     
-    const handleSave = async (e) => {
-        e.preventDefault();
-        // Lógica de salvamento
-        setIsEditMode(false); 
+    // ----------------------------------------------------
+    // LÓGICA DE CARREGAMENTO DE DADOS (GET)
+    // ----------------------------------------------------
+    const fetchProfile = useCallback(async () => {
+        
+        if (!user || !token) { 
+            setIsLoading(false);
+            if (!token) navigate('/login');
+            return; 
+        }
+        
+        setIsLoading(true);
+        setApiError(null);
+
+        // MOCK DE BUSCA REAL (Substituir axios.get)
+        try {
+            // Simula uma resposta de API
+            const apiData = {
+                email: user.email,
+                is_professional: false, 
+                profile: {
+                    full_name: 'Usuário Teste Mockado', 
+                    phone_number: '11999999999',
+                    cpf: '12345678900',
+                    bio: 'Este é um perfil mockado de cliente.',
+                    cep: '01001000', 
+                    cidade: 'São Paulo', 
+                    estado: 'SP', 
+                    profile_picture_url: DEFAULT_AVATAR,
+                },
+            };
+            
+            const profile = apiData.profile || {}; 
+            const profilePictureUrl = profile.profile_picture_url || DEFAULT_AVATAR;
+            
+            setProfileData({
+                email: apiData.email,
+                is_professional: apiData.is_professional,
+                
+                full_name: profile.full_name || '',
+                phone_number: profile.phone_number || '',
+                cpf: profile.cpf || '',
+                bio: profile.bio || '',
+                cep: profile.cep || '', 
+                cidade: profile.cidade || '',
+                estado: profile.estado || '',
+
+                street: '', 
+                number: '',
+                complement: '', 
+                neighborhood: '',
+                
+                profilePictureUrl: profilePictureUrl,
+            });
+
+            if(typeof setUserRole === 'function') {
+                setUserRole(apiData.is_professional);
+            }
+            
+            setIsProfileFetched(true); 
+
+        } catch (error) {
+            // Em um ambiente real, o erro do axios seria tratado aqui
+            setApiError("Falha ao carregar dados do perfil (Mock). Tente recarregar a página.");
+            console.error("Erro ao buscar perfil:", error);
+        } finally {
+            setIsLoading(false); 
+        }
+    }, [token, user, navigate, setUserRole, setIsNavigating, setIsProfileFetched]); 
+    
+    // ----------------------------------------------------
+    // LÓGICA DE EFEITO (useEffect)
+    // ----------------------------------------------------
+    useEffect(() => {
+        if (user && !isNavigating && !isProfileFetched) { 
+            fetchProfile();
+        } else if (!token) {
+            setIsLoading(false);
+            navigate('/login');
+        }
+    }, [user, token, navigate, fetchProfile, isNavigating, isProfileFetched]); 
+    
+    
+    const handlePictureUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setProfilePictureFile(file);
+        setApiError(null);
+        
+        // Simulação de pré-visualização imediata
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setProfileData(prev => ({ ...prev, profilePictureUrl: reader.result }));
+        };
+        reader.readAsDataURL(file);
+
+        alert("Simulação: Foto de perfil seria enviada aqui.");
     };
 
-    // ----------------------------------------------------
-    // RENDERIZAÇÃO
-    // ----------------------------------------------------
-    if (isLoading) { /* ... */ return <Container className="my-5 text-center"><Spinner animation="border" role="status" className="text-primary"/><p className="mt-2">Carregando perfil profissional...</p></Container>;}
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsSaving(true);
+        setApiError(null);
+        
+        // Simulação de envio
+        await new Promise(resolve => setTimeout(resolve, 800)); 
+
+        try {
+            if (typeof setUserName === 'function') {
+                setUserName(profileData.full_name); 
+            }
+            
+            alert("Perfil atualizado com sucesso! (Simulação)");
+
+        } catch (error) {
+            setApiError("Erro ao salvar alterações. (Simulação)");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const toggleRole = async () => {
+        if (!token) return;
+        
+        const newStatus = !profileData.is_professional; 
+        
+        // Simulação de alteração de papel
+        await new Promise(resolve => setTimeout(resolve, 500)); 
+        
+        try {
+            if (typeof setUserRole === 'function') {
+                setUserRole(newStatus);
+            }
+            
+            setProfileData(prev => ({ ...prev, is_professional: newStatus }));
+
+            alert(`Status alterado para: ${newStatus ? 'Profissional' : 'Cliente'}! (Simulação)`);
+
+            if (newStatus === true && user?.id) { 
+                navigate(`/professional/${user.id}`); 
+            }
+
+        } catch (error) {
+            setApiError(`Falha ao alternar papel. (Simulação)`);
+        }
+    };
+    
+    const handleLogout = () => {
+        if (typeof logout === 'function') {
+            logout(); 
+        }
+    };
+    
+    if (isLoading) {
+        return (
+            <Container className="my-5 text-center">
+                <Spinner animation="border" role="status" className="text-primary"/>
+                <p className="mt-2">Carregando dados do perfil... (Mock)</p>
+            </Container>
+        );
+    }
+    
+    const nextRole = profileData.is_professional ? 'Cliente' : 'Profissional';
+    const currentRole = profileData.is_professional ? 'Profissional' : 'Cliente';
+    const currentRoleIcon = profileData.is_professional ? <Briefcase size={20} className="me-2" /> : <User size={20} className="me-2" />;
     
     return (
         <Container className="my-5">
-            {/* 🚨 DEBUG BAR CRÍTICO 🚨 */}
-            <Alert variant={isOwner ? "success" : "info"} className="p-1 mb-2 small d-flex justify-content-between">
-                <span>
-                    **MODO: {isOwner ? 'PROPRIETÁRIO' : 'CLIENTE/VISITANTE'}** | Logado: **{user?.full_name || 'Visitante'}**
-                    | Auth ID: **{userId || 'NÃO AUTENTICADO'}**
-                    | URL ID: **{id}**
-                    | isOwner: **{String(isOwner).toUpperCase()}**
-                </span>
-                {apiError && <span className="text-danger">API Falhou: {apiError}</span>}
-            </Alert>
+            <h1 className="mb-4 d-flex align-items-center" style={{ color: 'var(--primary-color)' }}>
+                <Settings size={32} className="me-2" /> Gerenciamento de Perfil
+            </h1>
+            
+            {apiError && <Alert variant="danger">{apiError}</Alert>}
             
             <Row>
-                {/* COLUNA ESQUERDA: PERFIL E CONTEÚDO */}
                 <Col md={8}>
-                    {/* CARD SUPERIOR: FOTO, NOME, SERVIÇO, LOCALIZAÇÃO */}
+                    {/* CARD DE FOTO DE PERFIL E NOME */}
                     <Card className="shadow-sm mb-4">
-                        <Card.Body className="d-flex align-items-center justify-content-between p-4">
-                            <div className="d-flex align-items-center">
-                                {/* Simulação de Avatar com inicial */}
-                                <div className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-4" 
-                                     style={{ width: '80px', height: '80px', fontSize: '2.5rem', fontWeight: 'bold' }}>
-                                    {profileData.full_name.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                    <h4 className="mb-1 fw-bold">{profileData.full_name}</h4>
-                                    <p className="text-muted mb-1">{profileData.main_service}</p>
-                                    <p className="text-muted mb-0 d-flex align-items-center">
-                                        <MapPin size={16} className="me-1" /> {profileData.city}, {profileData.state}
-                                    </p>
-                                </div>
+                        <Card.Body className="d-flex align-items-center">
+                            <img 
+                                src={profileData.profilePictureUrl} 
+                                alt="Foto de Perfil"
+                                className="rounded-circle me-4"
+                                style={{ width: '80px', height: '80px', objectFit: 'cover', border: '2px solid #007bff' }}
+                            />
+                            <div>
+                                <h5 className="mb-1">{profileData.full_name}</h5>
+                                
+                                <label htmlFor="profile-picture-upload" className="btn btn-outline-primary btn-sm mt-1">
+                                    <Camera size={16} className="me-1" /> Alterar Foto
+                                </label>
+                                <input 
+                                    type="file" id="profile-picture-upload" accept="image/*" 
+                                    onChange={handlePictureUpload} 
+                                    style={{ display: 'none' }} 
+                                />
                             </div>
+                        </Card.Body>
+                    </Card>
+
+                    {/* CARD DE INFORMAÇÕES BÁSICAS - COM COLAPSO */}
+                    <Card className="shadow-sm mb-4">
+                        <Card.Header 
+                            className="fw-bold bg-light d-flex justify-content-between align-items-center" 
+                            style={{ color: 'var(--dark-text)', cursor: 'pointer' }}
+                            onClick={() => setIsInfoCollapsed(!isInfoCollapsed)}
+                            aria-controls="info-collapse-body"
+                            aria-expanded={!isInfoCollapsed}
+                        >
+                            Informações da Conta e Endereço
+                            {isInfoCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+                        </Card.Header>
+                        
+                        <Collapse in={!isInfoCollapsed}>
+                            <div id="info-collapse-body">
+                                <Card.Body>
+                                    <Form onSubmit={handleSubmit}>
+                                        
+                                        {/* DADOS PESSOAIS */}
+                                        <h5 className="mb-3 text-muted">Dados Pessoais</h5>
+                                        <Row className="mb-3">
+                                            <Col md={6}>
+                                                <Form.Label>Nome Completo</Form.Label>
+                                                <Form.Control type="text" name="full_name" value={profileData.full_name} onChange={handleChange} required />
+                                            </Col>
+                                            <Col md={6}>
+                                                <Form.Label>Email</Form.Label>
+                                                <div className="d-flex flex-column">
+                                                    <Form.Control readOnly plaintext value={profileData.email} className="fw-bold" />
+                                                    <small className="text-danger mt-1">
+                                                        Este é seu login principal e não pode ser alterado.
+                                                    </small>
+                                                </div>
+                                            </Col>
+                                        </Row>
+                                        <Form.Group className="mb-4">
+                                            <Form.Label>Telefone</Form.Label>
+                                            <Form.Control type="text" name="phone_number" value={profileData.phone_number} onChange={handleChange} />
+                                        </Form.Group>
+                                        <Form.Group className="mb-4">
+                                            <Form.Label>CPF</Form.Label>
+                                            <Form.Control type="text" name="cpf" value={profileData.cpf} onChange={handleChange} maxLength={11} required />
+                                        </Form.Group>
+
+                                        {/* DADOS DE ENDEREÇO */}
+                                        <hr />
+                                        <h5 className="mb-3 text-muted d-flex align-items-center"><MapPin size={20} className="me-2"/> Endereço</h5>
+
+                                        <Row className="mb-3">
+                                            <Col md={4}>
+                                                <Form.Label>CEP</Form.Label>
+                                                <Form.Control 
+                                                    type="text" name="cep" value={profileData.cep} onChange={handleChange} maxLength={9} placeholder="Ex: 01001-000" required 
+                                                />
+                                            </Col>
+                                            <Col md={8} className="d-flex align-items-end">
+                                                {cepLoading && <Spinner animation="border" size="sm" className="me-2 text-primary" />}
+                                                {cepError && <Alert variant="danger" className="py-1 px-2 small m-0">{cepError}</Alert>}
+                                            </Col>
+                                        </Row>
+                                        
+                                        <Row className="mb-3">
+                                            <Col md={8}>
+                                                <Form.Label>Rua/Avenida (Logradouro)</Form.Label>
+                                                <Form.Control type="text" name="street" value={profileData.street} onChange={handleChange} disabled={cepLoading} required />
+                                            </Col>
+                                            <Col md={4}>
+                                                <Form.Label>Bairro</Form.Label>
+                                                <Form.Control type="text" name="neighborhood" value={profileData.neighborhood} onChange={handleChange} disabled={cepLoading} required />
+                                            </Col>
+                                        </Row>
+
+                                        <Row className="mb-3">
+                                            <Col md={4}>
+                                                <Form.Label>Cidade</Form.Label> 
+                                                <Form.Control type="text" name="cidade" value={profileData.cidade} onChange={handleChange} disabled={cepLoading} required />
+                                            </Col>
+                                            <Col md={2}>
+                                                <Form.Label>Estado (UF)</Form.Label>
+                                                <Form.Control type="text" name="estado" value={profileData.estado} onChange={handleChange} disabled={cepLoading} maxLength={2} required />
+                                            </Col>
+                                            <Col md={3}>
+                                                <Form.Label>Número</Form.Label> 
+                                                <Form.Control type="text" name="number" value={profileData.number} onChange={handleChange} placeholder="Obrigatório" required />
+                                            </Col>
+                                            <Col md={3}>
+                                                <Form.Label>Complemento (Opcional)</Form.Label>
+                                                <Form.Control type="text" name="complement" value={profileData.complement} onChange={handleChange} placeholder="Apto/Bloco" />
+                                            </Col>
+                                        </Row>
+
+                                        <Button variant="success" type="submit" disabled={isSaving || cepLoading}>
+                                            {isSaving ? <Spinner animation="border" size="sm" /> : 'Salvar Alterações'}
+                                        </Button>
+                                    </Form>
+                                </Card.Body>
+                            </div>
+                        </Collapse>
+                    </Card>
+
+                    {/* SEÇÃO DE DEMANDAS (SÓ PARA CLIENTES) */}
+                    {!profileData.is_professional && (
+                        <>
+                            <MyDemandsSection 
+                                currentPage={currentPage}
+                                itemsPerPage={itemsPerPage}
+                            />
                             
-                            <div className="text-end">
-                                {/* 🚨 DIFERENCIAL 1: BOTÃO EDITAR PERFIL (SÓ PARA O DONO) */}
-                                {isOwner && (
-                                    <Button 
-                                        variant="primary" 
-                                        size="sm" 
-                                        className="mb-2 d-flex align-items-center fw-bold"
-                                        onClick={() => setIsEditMode(prev => !prev)}
-                                    >
-                                        <Pencil size={16} className="me-1" /> {isEditMode ? 'SAIR DO MODO EDIÇÃO' : 'EDITAR PERFIL'}
-                                    </Button>
-                                )}
-                                <div className="d-flex align-items-center justify-content-end">
-                                    <Star size={16} fill="#ffc107" color="#ffc107" className="me-1"/> 
-                                    <span className="ms-1 fw-bold">({profileData.rating.toFixed(1)}/5)</span>
+                            {/* RENDERIZAÇÃO DA PAGINAÇÃO (CORREÇÃO FINAL DE ESCOPO/IMPLEMENTAÇÃO) */}
+                            {totalDemands > itemsPerPage && (
+                                <div className="d-flex justify-content-center mt-4 mb-4">
+                                    <Pagination>
+                                        <Pagination.First 
+                                            onClick={() => handlePageChange(1)} 
+                                            disabled={currentPage === 1} 
+                                        />
+                                        <Pagination.Prev 
+                                            onClick={() => handlePageChange(currentPage - 1)} 
+                                            disabled={currentPage === 1} 
+                                        />
+                                        
+                                        {/* Renderiza os botões de página diretamente no JSX */}
+                                        {[...Array(totalPages).keys()].map(number => (
+                                            <Pagination.Item 
+                                                key={number + 1} 
+                                                active={number + 1 === currentPage}
+                                                onClick={() => handlePageChange(number + 1)}
+                                            >
+                                                {number + 1}
+                                            </Pagination.Item>
+                                        ))}
+                                        
+                                        <Pagination.Next 
+                                            onClick={() => handlePageChange(currentPage + 1)} 
+                                            disabled={currentPage === totalPages} 
+                                        />
+                                        <Pagination.Last 
+                                            onClick={() => handlePageChange(totalPages)} 
+                                            disabled={currentPage === totalPages} 
+                                        />
+                                    </Pagination>
                                 </div>
-                                <Button variant="light" size="sm" className="mt-1"><Share2 size={16} className="me-1"/> Compartilhar</Button>
-                            </div>
-                        </Card.Body>
-                    </Card>
-
-                    {/* CARD DE DADOS DE SATISFAÇÃO E DEMANDAS */}
-                    <Card className="shadow-sm mb-4">
-                        <Card.Body className="d-flex justify-content-around text-center">
-                            <Col><h4 className="fw-bold text-primary">{profileData.satisfaction}%</h4><p className="text-muted small">Satisfação</p></Col>
-                            <Col className="border-start border-end"><h4 className="fw-bold">{profileData.demands_count}</h4><p className="text-muted small">Demandas</p></Col>
-                            <Col><h4 className="fw-bold text-success">{profileData.status}</h4><p className="text-muted small">Status</p></Col>
-                        </Card.Body>
-                    </Card>
-
-                    {/* CARD SOBRE O PROFISSIONAL (Modo Edição visível se isOwner for TRUE) */}
-                    <Card className="shadow-sm mb-4">
-                        <Card.Header className="fw-bold bg-light" style={{ color: 'var(--dark-text)' }}>Sobre o Profissional</Card.Header>
-                        <Card.Body>
-                            {isEditMode ? (<Form.Group className="mb-3"><Form.Label>Descrição/Bio</Form.Label><Form.Control as="textarea" name="bio" value={profileData.bio} onChange={handleEditChange} rows={4} /></Form.Group>) : (<p className="text-muted">{profileData.bio}</p>)}
-                            {isEditMode ? (<Form.Group className="mb-3"><Form.Label>CNPJ (Opcional)</Form.Label><Form.Control type="text" name="cnpj" value={profileData.cnpj} onChange={handleEditChange} /></Form.Group>) : (<p className="text-muted">CNPJ: {profileData.cnpj}</p>)}
-                        </Card.Body>
-                    </Card>
-
-                    {/* CARD PORTFÓLIO & MÍDIA (Botões de Edição visíveis se isOwner for TRUE) */}
-                    <Card className="shadow-sm mb-4">
-                        <Card.Header className="fw-bold bg-light" style={{ color: 'var(--dark-text)' }}>Portfólio & Mídia</Card.Header>
-                        <Card.Body>
-                            <Row>
-                                {portfolioMedia.map((media) => (
-                                    <Col md={4} className="mb-3" key={media.id}>
-                                        <div className="position-relative">
-                                            <img src={media.url} alt={media.label} className="img-fluid rounded" style={{ height: '120px', width: '100%', objectFit: 'cover' }} />
-                                            {isEditMode && <Button variant="danger" size="sm" className="position-absolute top-0 end-0 m-1"><Trash2 size={14} /></Button>}
-                                        </div>
-                                    </Col>
-                                ))}
-                            </Row>
-                        </Card.Body>
-                    </Card>
-
-                    {/* CARD FEEDBACKS */}
-                    <Card className="shadow-sm mb-4">
-                        <Card.Header className="fw-bold bg-light" style={{ color: 'var(--dark-text)' }}>Feedbacks ({profileData.reviews_count})</Card.Header>
-                        <Card.Body><p className="text-muted">Aqui serão exibidos os comentários dos clientes.</p></Card.Body>
-                    </Card>
-
-                    {/* BOTÃO DE SALVAR PRINCIPAL */}
-                    {isEditMode && isOwner && (
-                        <div className="text-center mt-4">
-                            <Button variant="success" size="lg" onClick={handleSave} disabled={isSaving} className="fw-bold">SALVAR ALTERAÇÕES</Button>
-                        </div>
+                            )}
+                        </>
                     )}
 
-                </Col>
-
-                {/* COLUNA DIREITA: OPÇÕES RÁPIDAS E MINHAS DEMANDAS */}
-                <Col md={4}>
-                    {/* CARD DE OPÇÕES RÁPIDAS */}
-                    <Card className="shadow-lg mb-4 text-center">
-                        <Card.Header className="fw-bold bg-dark text-white">Opções Rápidas</Card.Header>
-                        <Card.Body className="d-grid gap-2">
-                            {isOwner ? (
-                                // 🚨 DIFERENCIAL 2: BOTÕES DO MODO PROPRIETÁRIO
-                                <>
-                                    <Button as={Link} to={`/meu-perfil`} variant="dark" className="fw-bold d-flex align-items-center justify-content-center" style={{ backgroundColor: '#495057', borderColor: '#495057' }}>
-                                        <Edit size={16} className="me-2" /> GERENCIAR MEUS DADOS
-                                    </Button>
-                                    <Button as={Link} to={`/professional/${userId}/schedule`} variant="secondary" className="fw-bold d-flex align-items-center justify-content-center" style={{ backgroundColor: '#a52a2a', borderColor: '#a52a2a' }}>
-                                        <CalendarCheck size={16} className="me-2" /> CONSULTAR AGENDA
-                                    </Button>
-                                    <Button variant="outline-warning" className="fw-bold d-flex align-items-center justify-content-center">
-                                        <MessageSquare size={16} className="me-2" /> ENVIAR MENSAGEM
-                                    </Button>
-                                </>
-                            ) : isAuthenticated ? (
-                                // 🚨 DIFERENCIAL 3: BOTÕES DO MODO CLIENTE (João)
-                                <>
-                                    <Button variant="success" className="fw-bold d-flex align-items-center justify-content-center">
-                                        <Zap size={16} className="me-2" /> SOLICITAR SERVIÇO
-                                    </Button>
-                                    <Button as={Link} to={`/mensagens/novo/${id}`} variant="warning" className="fw-bold d-flex align-items-center justify-content-center">
-                                        <MessageSquare size={16} className="me-2" /> ENVIAR MENSAGEM
-                                    </Button>
-                                    <Button variant="link" className="small text-danger mt-2 d-flex align-items-center justify-content-center">
-                                        <AlertTriangle size={14} className="me-1" /> DENUNCIAR CONTA
-                                    </Button>
-                                </>
-                            ) : (
-                                // MODO VISITANTE
-                                <Alert variant="light" className="m-0">Faça login para contratar este profissional.</Alert>
-                            )}
-                        </Card.Body>
-                    </Card>
-
-                    {/* 🚨 DIFERENCIAL 4: CARD MINHAS DEMANDAS (SÓ PARA O DONO) */}
-                    {isOwner && (
-                        <Card className="shadow-sm mb-4">
-                            <Card.Header className="fw-bold bg-light" style={{ color: 'var(--dark-text)' }}>Minhas Demandas</Card.Header>
+                    {/* CARD DE CONFIGURAÇÕES DE PROFISSIONAL (SÓ PARA PROFISSIONAIS) */}
+                    {profileData.is_professional && (
+                        <Card className="shadow-sm mb-4 border-success">
+                            <Card.Header className="fw-bold bg-success text-white">
+                                Configurações de Profissional
+                            </Card.Header>
                             <Card.Body>
-                                {/* ... (Conteúdo de Demandas) ... */}
+                                <p>Gerencie suas especialidades, preços e disponibilidade.</p>
+                                <Button as={Link} to={`/professional/${user.id}`} variant="outline-success" className="me-2">
+                                    Editar Portfólio
+                                </Button>
+                                <Button as={Link} to={`/professional/${user.id}/schedule`} variant="outline-success">
+                                    Gerenciar Agenda
+                                </Button>
                             </Card.Body>
                         </Card>
                     )}
+                    
+                </Col>
+
+                {/* COLUNA DE CONTROLES (DIREITA) */}
+                <Col md={4}>
+                    {/* CARD DE PAPEL ATUAL E CONTROLE DE TESTE */}
+                    <Card className="shadow-lg mb-4 text-center">
+                        <Card.Body>
+                            <h5 className="mb-3">Seu Papel Atual:</h5>
+                            <Alert variant={profileData.is_professional ? "info" : "warning"} className="fw-bold d-flex justify-content-center align-items-center">
+                                {currentRoleIcon} {currentRole}
+                            </Alert>
+                            <p className="small text-muted">Mude seu papel para Cliente ou Profissional.</p>
+                            <Button 
+                                variant="primary" 
+                                className="w-100 mt-2 fw-bold d-flex justify-content-center align-items-center" 
+                                onClick={toggleRole} 
+                            >
+                                <Repeat size={18} className="me-2" />
+                                Mudar para: {nextRole}
+                            </Button>
+                        </Card.Body>
+                    </Card>
+                    
+                    {/* BLOCO 1: PROFISSIONAIS SEGUIDOS (APENAS PARA CLIENTES) */}
+                    {!profileData.is_professional && (
+                        <FollowingProfessionalsList />
+                    )}
+                    
+                    {/* BLOCO 2: MENSAGENS (APENAS PARA CLIENTES) */}
+                    {!profileData.is_professional && (
+                        <Card className="shadow-sm mb-4">
+                            <Card.Header className="fw-bold bg-light" style={{ color: 'var(--dark-text)' }}>
+                                Comunicação
+                            </Card.Header>
+                            <Card.Body>
+                                <Button 
+                                    as={Link} 
+                                    to="/mensagens" 
+                                    variant="warning" 
+                                    className="w-100 fw-bold d-flex justify-content-center align-items-center"
+                                >
+                                    <MessageSquare size={20} className="me-2" /> Minhas Mensagens
+                                </Button>
+                            </Card.Body>
+                        </Card>
+                    )}
+
+                    {/* CARD DE SEGURANÇA */}
+                    <Card className="shadow-sm mb-4">
+                        <Card.Header className="fw-bold bg-light" style={{ color: 'var(--dark-text)' }}>
+                            Segurança
+                        </Card.Header>
+                        <Card.Body className="d-grid gap-2">
+                            <Button as={Link} to="/change-password" variant="danger" className="w-100">
+                                Mudar Senha
+                            </Button>
+                            <Button 
+                                variant="outline-danger" 
+                                className="w-100 d-flex justify-content-center align-items-center mt-2 fw-bold"
+                                onClick={handleLogout} 
+                            >
+                                <LogOut size={20} className="me-2" /> Sair da Conta
+                            </Button>
+                        </Card.Body>
+                    </Card>
                 </Col>
             </Row>
 
-            <footer className="text-center mt-5 text-muted"><p>© 2025 VagALI. Todos os direitos reservados.</p></footer>
         </Container>
     );
 };

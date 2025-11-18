@@ -1,45 +1,25 @@
-// axiosConfig.js (CORRIGIDO)
-
 import axios from 'axios';
 
-// Função para setar/limpar o token globalmente
+// --- Ponto 1: Configuração da URL Base (Opcional) ---
+// Se você usa um proxy no package.json, mantenha esta linha comentada.
+// Caso contrário, descomente e ajuste para a URL completa da sua API (ex: 'http://127.0.0.1:8000/api/v1')
+// axios.defaults.baseURL = '/api/v1'; 
+
+
+// --- Ponto 2: Função para setar/limpar o token globalmente ---
+// Esta função será controlada APENAS pelo seu AuthContext.
 export const setAuthToken = (token) => {
     if (token) {
-        // 🚨 CRÍTICO: Usa 'authToken' para consistência
+        // CRÍTICO: Formato DRF: "Token <chave_do_token>"
         axios.defaults.headers.common['Authorization'] = `Token ${token}`;
-        console.log("Axios Configurado: Token aplicado globalmente.");
     } else {
+        // Limpa o header
         delete axios.defaults.headers.common['Authorization'];
-        console.log("Axios Configurado: Token removido globalmente.");
     }
 };
 
-// 🚨 Interceptor de Requisição (Garante o token em todas as requisições, exceto login/registro)
-axios.interceptors.request.use(
-    (config) => {
-        // 🚨 CRÍTICO: Usa 'authToken' para consistência
-        const token = localStorage.getItem('authToken'); 
+// --- Ponto 3: REMOVEMOS O CÓDIGO DE CHECK INICIAL ---
+// A responsabilidade de ler o token no início da aplicação foi movida para o AuthContext.
 
-        // Verifica se é uma URL de autenticação que não deve ter token (ex: login, registro)
-        const isAuthUrl = config.url && (
-            config.url.includes('/auth/login/') || 
-            config.url.includes('/auth/register/')
-        );
-
-        if (token && !isAuthUrl) {
-            // Adiciona o cabeçalho Authorization com o prefixo 'Token '
-            config.headers.Authorization = `Token ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(error);
-    }
-);
-
-// Check inicial na carga da aplicação (para manter o usuário logado após F5)
-// 🚨 CRÍTICO: Usa 'authToken' para consistência
-const initialToken = localStorage.getItem('authToken');
-if (initialToken) {
-    setAuthToken(initialToken);
-}
+// Exporta a instância do axios configurado
+export default axios;

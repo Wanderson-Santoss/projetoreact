@@ -3,15 +3,15 @@ from accounts.models import User, Profile
 from django.db import transaction 
 from rest_framework.authtoken.serializers import AuthTokenSerializer as DRFAuthTokenSerializer
 from django.utils.translation import gettext_lazy as _
+from django.contrib.auth import authenticate 
+from rest_framework.authtoken.models import Token 
 
 # --- 1. Serializer do Modelo Profile (Aninhado) ---
 class ProfileSerializer(serializers.ModelSerializer):
     """
     Serializer base para o modelo Profile (aninhado dentro de User).
-    Permite a maioria dos campos como opcionais (required=False).
     """
     
-    # Campos que vêm do Profile:
     full_name = serializers.CharField(required=False, allow_blank=True, max_length=255) 
     cpf = serializers.CharField(required=False, allow_blank=True, max_length=11)
     phone_number = serializers.CharField(required=False, allow_blank=True, max_length=15)
@@ -27,6 +27,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
+        # Removido o campo 'user' daqui para evitar que ele seja exposto ou obrigatório.
         fields = ('full_name', 'cpf', 'phone_number', 'bio', 'address', 'cep', 'servico_principal', 'descricao_servicos', 'cidade', 'estado', 'cnpj', 'palavras_chave')
 
 
@@ -34,11 +35,9 @@ class ProfileSerializer(serializers.ModelSerializer):
 class FullProfileSerializer(serializers.ModelSerializer):
     """
     Serializer para o User, aninhando o Profile para leitura/escrita.
-    Usado em /api/v1/accounts/perfil/me/ e na visualização de detalhe do profissional.
     """
     profile = ProfileSerializer(required=False) 
     
-    # Campos de leitura do Profile
     rating = serializers.SerializerMethodField(read_only=True)
     feedback_count = serializers.SerializerMethodField(read_only=True)
     demands_completed = serializers.SerializerMethodField(read_only=True) 
@@ -51,42 +50,54 @@ class FullProfileSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ('email', 'date_joined', 'id')
     
-    # Métodos Get para os campos do Profile
+    # Métodos Get para os campos do Profile - 🚨 CORREÇÃO DE LEITURA (PREVINE ERRO 500 NO GET)
     def get_rating(self, obj):
-        return obj.profile.rating if hasattr(obj, 'profile') else 0.00
+        # Verifica se o 'profile' existe e não é None
+        if hasattr(obj, 'profile') and obj.profile is not None:
+            return obj.profile.rating if obj.profile.rating is not None else 0.00
+        return 0.00 # Valor padrão
         
     def get_feedback_count(self, obj):
-        # A lógica correta dependeria do seu modelo de Feedback/Avaliação
-        # Assumindo a existência de um campo feedback_count no Profile
-        return obj.profile.feedback_count if hasattr(obj, 'profile') and hasattr(obj.profile, 'feedback_count') else 0 
+        if hasattr(obj, 'profile') and obj.profile is not None:
+             # Usar getattr para lidar com campos que podem não existir no Profile
+             return getattr(obj.profile, 'feedback_count', 0)
+        return 0 
         
     def get_demands_completed(self, obj):
-        # Implemente a lógica real se necessário
+        # Este campo é um mock, mantido como 0.
         return 0
 
     @transaction.atomic
     def update(self, instance, validated_data):
         profile_data = validated_data.pop('profile', None)
         
-        # 1. Atualiza o objeto User
+        # 1. Atualiza o objeto User (is_professional ou outros campos do User)
         instance = super().update(instance, validated_data)
         
-        # 2. Atualiza o Profile
-        if hasattr(instance, 'profile'):
-            profile_instance = instance.profile
-
-            if profile_data is not None:
-                # O ProfileSerializer deve ser instanciado com o instance e o data, para o update
+        # 2. Atualiza ou CRIA o Profile - 🚨 CORREÇÃO CRÍTICA DE ESCRITA (PERMITE CRIAR O PROFILE)
+        if profile_data is not None:
+            
+            # Verifica se já existe uma instância de Profile para este User
+            if hasattr(instance, 'profile') and instance.profile is not None:
+                # 2.1. ATUALIZA o perfil existente
+                profile_instance = instance.profile
                 serializer = ProfileSerializer(instance=profile_instance, data=profile_data, partial=True)
                 serializer.is_valid(raise_exception=True)
-                serializer.save() 
+                serializer.save()
+            else:
+                # 2.2. CRIA um novo perfil (e o associa ao User logado)
+                serializer = ProfileSerializer(data=profile_data)
+                serializer.is_valid(raise_exception=True)
+                
+                # Salva o Profile e força o link com o User (ForeignKey).
+                serializer.save(user=instance)
         
         return instance
     
 # --- 3. Serializer para Listagem Pública de Profissionais ---
 class ProfessionalSerializer(serializers.ModelSerializer):
     """
-    Serializer para a listagem pública de profissionais (apenas dados essenciais).
+    Serializerr para a listagem pública de profissionais (apenas dados essenciais).
     """
     full_name = serializers.SerializerMethodField()
     servico_principal = serializers.SerializerMethodField()
@@ -98,33 +109,45 @@ class ProfessionalSerializer(serializers.ModelSerializer):
         fields = ('id', 'email', 'full_name', 'servico_principal', 'cidade', 'rating') 
         
     def get_full_name(self, obj):
-        return obj.profile.full_name if hasattr(obj, 'profile') else obj.email
+        return obj.profile.full_name if hasattr(obj, 'profile') and obj.profile is not None else obj.email
 
     def get_servico_principal(self, obj):
-        return obj.profile.servico_principal if hasattr(obj, 'profile') else None
+        return obj.profile.servico_principal if hasattr(obj, 'profile') and obj.profile is not None else None
 
     def get_cidade(self, obj):
-        return obj.profile.cidade if hasattr(obj, 'profile') else None
+        return obj.profile.cidade if hasattr(obj, 'profile') and obj.profile is not None else None
 
     def get_rating(self, obj):
-        return obj.profile.rating if hasattr(obj, 'profile') else 0.00
+        return obj.profile.rating if hasattr(obj, 'profile') and obj.profile is not None else 0.00
     
     
-# --- 4. Serializer Customizado para Login (CORREÇÃO CRÍTICA) ---
-class CustomAuthTokenSerializer(DRFAuthTokenSerializer):
+# --- 4. Serializer Customizado para Login ---
+class CustomAuthTokenSerializer(serializers.Serializer):
     """
-    Serializer customizado para o login, usando 'email' no lugar de 'username'.
+    Serializer simplificado e robusto para login por 'email' e 'password'.
     """
-    # 🚨 Adiciona o campo 'email' explicitamente (required=True por padrão no DRF)
     email = serializers.CharField(label=_("Email"))
-    
-    # 🚨 Remove o campo 'username' herdado da classe pai (DRFAuthTokenSerializer)
-    username_field = 'email'
-    username = None 
-    
+    password = serializers.CharField(
+        label=_("Senha"),
+        style={'input_type': 'password'},
+        trim_whitespace=False
+    )
+    token = serializers.CharField(label=_("Token"), read_only=True) 
+
     def validate(self, attrs):
-        # 🚨 Mapeia o 'email' para 'username' para que a lógica interna de autenticação funcione
-        attrs['username'] = attrs.get('email')
-        
-        # O método .validate da classe pai agora vai usar 'username' (que é o email) e 'password'
-        return super().validate(attrs)
+        email = attrs.get('email')
+        password = attrs.get('password')
+
+        if email and password:
+            user = authenticate(request=self.context.get('request'),
+                                 email=email, password=password) 
+
+            if not user:
+                msg = _('Não foi possível fazer login com as credenciais fornecidas.')
+                raise serializers.ValidationError(msg, code='authorization')
+        else:
+            msg = _('Deve incluir "email" e "password".')
+            raise serializers.ValidationError(msg, code='authorization')
+
+        attrs['user'] = user
+        return attrs
