@@ -25,7 +25,7 @@ class ProfileInline(admin.StackedInline):
 class UserAdmin(BaseUserAdmin):
     """Classe Admin para o modelo User customizado, usando Email como login."""
     
-    # 🚨 AGORA ProfileInline é reconhecido
+    #  AGORA ProfileInline é reconhecido
     inlines = (ProfileInline,)
     
     # Usa os formulários customizados

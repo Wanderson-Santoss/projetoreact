@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-// 🚨 PONTO CRÍTICO: URL DE LOGIN
+//  URL DE LOGIN
 const LOGIN_URL = '/api/v1/auth/custom-login/'; 
 
 const AuthContext = createContext();
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
         }
     }, [token]);
 
-    // 🚨 FUNÇÃO: Atualiza o status de profissional no Contexto e no localStorage
+    // Atualiza o status de profissional no Contexto e no localStorage
     const setUserRole = (is_professional_status) => {
         setUser(prevUser => {
             if (!prevUser) return null;
@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }) => {
         });
     };
     
-    // 🚨 NOVA FUNÇÃO: Atualiza o nome completo no Contexto e no localStorage
+    //  Atualiza o nome completo no Contexto e no localStorage
     const setUserName = (fullName) => {
         setUser(prevUser => {
             if (!prevUser) return null;
@@ -136,7 +136,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         setUserRole, 
-        setUserName, // 🚨 CRÍTICO: Incluir a nova função aqui
+        setUserName, 
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

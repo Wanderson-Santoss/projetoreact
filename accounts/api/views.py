@@ -12,8 +12,6 @@ from accounts.models import User
 from accounts.views import CadastroView 
 
 # Importa Serializers
-# 🚨 IMPORTANTE: Certifique-se que o ProfessionalSerializer, FullProfileSerializer e 
-# CustomAuthTokenSerializer estão corretamente definidos no seu serializers.py
 from .serializers import ProfessionalSerializer, FullProfileSerializer, CustomAuthTokenSerializer 
 
 
@@ -65,9 +63,6 @@ class ProfileViewSet(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewset
     def me(self, request):
         # Obtém o usuário logado através do token
         instance = self.get_object() 
-        
-        # 🚨 CORREÇÃO CRÍTICA: Lógica de depuração original
-        # Omitido para não poluir o console do servidor
         try:
              instance.profile.full_name # Tenta acessar para verificar se existe
              # print("Profile existe.")
@@ -81,7 +76,7 @@ class ProfileViewSet(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewset
         
         # Para PUT/PATCH (Update)
         
-        # 1. 🚨 TRATAMENTO DO CAMPO is_professional (CAUSA DO ERRO 500)
+        # 1.TRATAMENTO DO CAMPO is_professional (CAUSA DO ERRO 500)
         # Extraímos 'is_professional' dos dados da requisição.
         data = request.data.copy()
         is_professional_status = data.pop('is_professional', None)

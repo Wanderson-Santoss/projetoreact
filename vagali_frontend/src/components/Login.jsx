@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
-import { useAuth } from './AuthContext'; // 🚨 Caminho Corrigido
+import { useAuth } from './AuthContext';
 
 const Login = () => {
     const navigate = useNavigate();
-    // 🚨 CHAVE ESSENCIAL: Importar a função login do contexto
+    //  Importar a função login do contexto
     const { login, isAuthenticated } = useAuth(); 
 
     const [email, setEmail] = useState('');
@@ -27,7 +27,7 @@ const Login = () => {
         setLoading(true);
 
         try {
-            // 🚨 MUDANÇA CRUCIAL: Chama a função login do contexto que faz a chamada de API
+            //  Chama a função login do contexto que faz a chamada de API
             await login(email, password);
             // Se o login for bem-sucedido (sem throw), redireciona
             navigate('/meu-perfil'); 

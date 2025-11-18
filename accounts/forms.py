@@ -56,13 +56,10 @@ class ClientProfessionalCreationForm(UserCreationForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         
-        # 🚨 CORREÇÃO CRÍTICA DO HASH DE SENHA 🚨
         # Este passo garante que a senha seja criptografada no banco de dados.
         password = self.cleaned_data.get("password")
         if password:
-             user.set_password(password)
-        # FIM DA CORREÇÃO
-        
+             user.set_password(password)        
         if commit:
             user.save()
             
