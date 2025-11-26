@@ -1,331 +1,316 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { Container, Row, Col, Spinner, Alert, Form, Button } from 'react-bootstrap';
-import { Search, StarFill, PersonCircle, GeoAltFill, BriefcaseFill } from 'react-bootstrap-icons';
+import React, { useState } from 'react';
+import { Container, Row, Col, Card, Button, Form, FormControl, InputGroup, Carousel, Alert, Pagination } from 'react-bootstrap';
+import { Search, Briefcase, Star, MapPin, ChevronRight, Share2, BriefcaseMedical } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // ====================================================================
-// MOCKS E COMPONENTES AUXILIARES (Para replicar o layout de image_3e7c15.jpg)
+// MOCK DE DADOS
 // ====================================================================
 
-// MOCK: ICON_MAP (Simula o mapeamento de ícones)
-const ICON_MAP = {
-    ferramentas: { Icon: BriefcaseFill, name: 'Ferramentas' },
-    construcao: { Icon: BriefcaseFill, name: 'Construção' },
-    beleza: { Icon: PersonCircle, name: 'Beleza' },
-    eletricista: { Icon: BriefcaseFill, name: 'Eletricista' },
-    saude: { Icon: PersonCircle, name: 'Saúde' },
-    financas: { Icon: BriefcaseFill, name: 'Finanças' },
-    alimentos: { Icon: PersonCircle, name: 'Alimentos' },
-    educacao: { Icon: BriefcaseFill, name: 'Educação' },
-    tecnologia: { Icon: BriefcaseFill, name: 'Tecnologia' },
-    servicos: { Icon: BriefcaseFill, name: 'Serviços' },
-    jardinagem: { Icon: BriefcaseFill, name: 'Jardinagem' },
-    // Adicionais do seu layout
-    destaques: { Icon: StarFill, name: 'Destaques' },
-    promocoes: { Icon: StarFill, name: 'Promoções' },
-    certificados: { Icon: BriefcaseFill, name: 'Certificados' },
-    entregas: { Icon: BriefcaseFill, name: 'Entregas' },
-    limpeza: { Icon: BriefcaseFill, name: 'Limpeza' },
-    geral: { Icon: BriefcaseFill, name: 'Geral' },
+const DEFAULT_AVATAR = 'https://via.placeholder.com/80/ffc107/000000?text=P';
+
+// MOCK para as Categorias no topo (mantido)
+const MOCKED_CATEGORIES = [
+    { name: 'Todos', icon: 'Todos' },
+    { name: 'Ferramentas', icon: 'Ferramentas' },
+    { name: 'Construção', icon: 'Construção' },
+    { name: 'Beleza', icon: 'Beleza' },
+    { name: 'Eletricista', icon: 'Eletricista' },
+    { name: 'Saúde', icon: 'Saúde' },
+    { name: 'Finanças', icon: 'Finanças' },
+    { name: 'Alimentos', icon: 'Alimentos' },
+    { name: 'Educação', icon: 'Educação' },
+    { name: 'Tecnologia', icon: 'Tecnologia' },
+];
+
+// MOCK para os BANNERS (mantido)
+const MOCKED_BANNERS = [
+    { 
+        id: 1, 
+        src: 'https://picsum.photos/1200/300?random=1', 
+        alt: 'Banner 1: Grande Promoção', 
+        caption: 'Os melhores profissionais com preços incríveis!',
+        link: '/promocoes' 
+    },
+    { 
+        id: 2, 
+        src: 'https://picsum.photos/1200/300?random=2', 
+        alt: 'Banner 2: Área do Profissional', 
+        caption: 'Seja um profissional VagAli. Cadastre-se agora!',
+        link: '/register'
+    },
+    { 
+        id: 3, 
+        src: 'https://picsum.photos/1200/300?random=3', 
+        alt: 'Banner 3: Serviços de Construção', 
+        caption: 'Reformas e Construções com qualidade garantida.',
+        link: '/search?category=construcao'
+    },
+];
+
+// MOCK para os Profissionais em Destaque
+const MOCKED_PROFESSIONALS = [
+    { 
+        id: 'wanderson', 
+        name: 'Wanderson Santos', 
+        service: 'Eletricista', 
+        rating: 4.5, 
+        city: 'São Paulo', 
+        state: 'SP',
+        avatar_url: 'https://picsum.photos/80/80?random=4',
+        short_bio: 'Especialista em instalações e manutenções prediais com certificação NR-10.',
+        total_reviews: 20
+    },
+    { 
+        id: 'novo-teste', 
+        name: 'Novo Nome de Cadastro de Teste', 
+        service: 'Pedreiro', 
+        rating: 5.0, 
+        city: 'Rio de Janeiro', 
+        state: 'RJ',
+        avatar_url: 'https://picsum.photos/80/80?random=5',
+        short_bio: 'Mestre de obras com foco em alvenaria e acabamentos finos.',
+        total_reviews: 5
+    },
+    { 
+        id: 'juliana', 
+        name: 'Juliana Doces', 
+        service: 'Confeiteira', 
+        rating: 5.0, 
+        city: 'Curitiba', 
+        state: 'PR',
+        avatar_url: 'https://picsum.photos/80/80?random=6',
+        short_bio: 'Especialista em doces para casamentos, bolos, tortas e outros.',
+        total_reviews: 45
+    },
+];
+
+// ====================================================================
+// FUNÇÕES AUXILIARES (Mantidas)
+// ====================================================================
+
+const getCategoryIcon = (name) => {
+    if (name === 'Todos') return '🧺';
+    if (name === 'Ferramentas') return '🛠️';
+    if (name === 'Construção') return '🏗️';
+    if (name === 'Beleza') return '💅';
+    return '⭐'; 
+}
+
+// Função para renderizar estrelas
+const renderRatingStars = (rating, totalReviews) => {
+    const fullStars = Math.floor(rating);
+    return (
+        <div className="d-flex align-items-center">
+            {[...Array(5)].map((_, i) => (
+                <Star 
+                    key={i} 
+                    size={16} 
+                    fill={i < fullStars ? 'gold' : 'gray'} 
+                    stroke={i < fullStars ? 'gold' : 'gray'} 
+                    className="me-1" 
+                />
+            ))}
+            <small className="ms-1 fw-bold text-dark">{rating.toFixed(1)}/5</small>
+            <small className="ms-3 text-muted">({totalReviews} avaliações)</small>
+        </div>
+    );
 };
 
-// MOCK: cleanServiceName
-const cleanServiceName = (name) => name.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-// COMPONENTE: CategoryButton (Para a barra horizontal de categorias)
-const CategoryButton = ({ name, IconComponent, onClick, isSelected }) => (
-    <Button 
-        variant={isSelected ? 'warning' : 'outline-secondary'} 
-        className="text-nowrap mx-1 px-3 py-2 fw-bold"
-        onClick={onClick}
-        style={{ 
-            color: isSelected ? 'black' : 'white', 
-            backgroundColor: isSelected ? 'var(--primary-color, #ffc107)' : 'transparent',
-            borderColor: isSelected ? 'var(--primary-color, #ffc107)' : '#495057',
-            transition: 'all 0.3s'
-        }}
-    >
-        <IconComponent size={14} className="me-1" /> {name}
-    </Button>
-);
-
-// COMPONENTE MOCKADO: ProfileCard (Para replicar o visual da imagem)
-const ProfileCard = ({ professional }) => {
-    // Simula a URL da imagem de perfil (avatar)
-    const avatarUrl = professional.avatar_url || `https://via.placeholder.com/60/${professional.id % 2 === 0 ? 'ffc107' : '007bff'}/ffffff?text=${professional.full_name[0]}`;
-    // MOCK: Simula a descrição
-    const mockDescription = `Especialista em ${professional.servico_principal.toLowerCase()} com ${professional.rating} de satisfação.`;
+// ====================================================================
+// COMPONENTE CORRIGIDO: PROFESSIONAL CARD
+// ====================================================================
+const ProfessionalCard = ({ pro }) => {
+    
+    // A rota é construída de forma a enviar o ID do profissional para a tela de perfil público
+    const profileUrl = `/profissionais/${pro.id}`;
 
     return (
-        // Usamos Col md={3} para 4 cards por linha em telas grandes/médias
-        <Col md={3} sm={6} xs={12} className="mb-4"> 
-            <div className="card h-100 shadow-sm bg-light" style={{ borderRadius: '8px', overflow: 'hidden' }}>
-                <div className="p-3 d-flex align-items-center">
+        <Card className="shadow-sm h-100 bg-light border-warning border-2 hover-effect" style={{ cursor: 'pointer' }}>
+            
+            {/* O Card NÃO é mais um Link principal, permitindo Links internos */}
+            <Card.Body className="d-flex flex-column">
+                
+                {/* Linha 1: Foto, Nome e Serviço */}
+                {/* Tornando a foto e o nome clicáveis (Link) */}
+                <Link to={profileUrl} className="d-flex align-items-start text-decoration-none text-dark mb-3">
                     <img
-                        src={avatarUrl}
-                        alt={professional.full_name}
-                        className="rounded-circle me-3"
-                        style={{ width: '50px', height: '50px', objectFit: 'cover', border: '2px solid #ffc107' }}
+                        src={pro.avatar_url || DEFAULT_AVATAR}
+                        alt={pro.name}
+                        className="rounded-circle me-3 border border-warning"
+                        style={{ width: '65px', height: '65px', objectFit: 'cover' }}
                     />
-                    <div>
-                        <h6 className="mb-0 fw-bold text-dark">{professional.full_name}</h6>
-                        <span className="small text-muted">{professional.servico_principal}</span>
+                    <div className="flex-grow-1">
+                        {/* NOME EM DESTAQUE */}
+                        <h5 className="fw-bold mb-0">{pro.name}</h5> 
+                        {/* SERVIÇO PRINCIPAL */}
+                        <p className="small text-secondary mb-1">{pro.service}</p> 
+                        
+                        <small className="text-muted d-flex align-items-center">
+                            <MapPin size={14} className="me-1 text-secondary" /> {pro.city}, {pro.state}
+                        </small>
                     </div>
-                </div>
-
-                <div className="card-body pt-0 pb-2">
-                    <p className="small mb-2 text-dark">
-                        {mockDescription}
-                        <Link to={`/profissionais/${professional.id}`} className="ms-1 small text-primary" style={{ whiteSpace: 'nowrap' }}>
+                </Link>
+                
+                {/* Linha 2: Descrição Curta (Texto escuro) */}
+                <div className="mb-3 border-top pt-3">
+                    <p className="small text-dark mb-0">
+                        {pro.short_bio} 
+                        {/* O 'ler mais...' agora é um Link funcional */}
+                        <Link to={profileUrl} className="text-primary ms-1 fw-bold text-decoration-none">
                             ler mais...
                         </Link>
                     </p>
-                    <div className="d-flex align-items-center small mb-2 text-dark">
-                        <GeoAltFill size={14} className="me-1 text-primary" />
-                        {professional.cidade}, Brasil
-                    </div>
-                    <div className="d-flex align-items-center justify-content-between">
-                        {/* Rating */}
-                        <div className="d-flex align-items-center">
-                            <StarFill size={12} className="text-warning me-1" />
-                            <span className="fw-bold text-dark">{professional.rating.toFixed(1)}/5</span>
-                        </div>
-                        {/* Botão Seguir */}
-                        <Button variant="outline-primary" size="sm" className="fw-bold py-1">
-                            + Seguir
-                        </Button>
-                    </div>
                 </div>
-            </div>
-        </Col>
+
+                {/* Linha 3: Avaliação e Botão de Ação */}
+                <div className="d-flex justify-content-between align-items-center mt-auto">
+                    
+                    {/* Avaliação */}
+                    {renderRatingStars(pro.rating, pro.total_reviews)}
+                    
+                    {/* Botão de Ação: É um Link funcional */}
+                    <Button 
+                        as={Link}
+                        to={profileUrl}
+                        variant="warning" 
+                        className="fw-bold d-flex align-items-center px-3"
+                    >
+                        Ver Perfil <ChevronRight size={16} className="ms-1" />
+                    </Button>
+                </div>
+
+            </Card.Body>
+        </Card>
     );
 };
 
 
 // ====================================================================
-// COMPONENTE PRINCIPAL MainFeed
+// COMPONENTE PRINCIPAL: MAIN FEED
 // ====================================================================
-
 const MainFeed = () => {
-    
-    // --- ESTADOS ---
-    const [professionals, setProfessionals] = useState([]);
-    const [services, setServices] = useState([]); 
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedServiceId, setSelectedServiceId] = useState('Todos');
-
-    const PROFESSIONALS_URL = '/api/v1/accounts/profissionais/';
-    const SERVICES_URL = '/api/v1/servicos/'; 
-
-    // MOCK DE DADOS DO PROFILE (Para ter conteúdo no feed)
-    const MOCKED_PROFESSIONALS = [
-        // Destaques (Ratings altos)
-        { id: 1, full_name: "Confeiteira Juliana Doces", email: "j1@t.com", servico_principal: "Confeiteira", cidade: "Rio de Janeiro", rating: 5.0, avatar_url: 'https://via.placeholder.com/60/ffb3ba/ffffff?text=J' },
-        { id: 2, full_name: "Eletricista Carlos Mendes", email: "c1@t.com", servico_principal: "Eletricista", cidade: "São Paulo", rating: 4.5, avatar_url: 'https://via.placeholder.com/60/ADD8E6/000000?text=C' },
-        { id: 3, full_name: "Cabeleireira Ana Costa", email: "a1@t.com", servico_principal: "Cabeleireira", cidade: "Belo Horizonte", rating: 3.5, avatar_url: 'https://via.placeholder.com/60/d1d1d1/000000?text=A' },
-        { id: 4, full_name: "Carpinteiro Roberto Dias", email: "r1@t.com", servico_principal: "Carpinteiro", cidade: "Curitiba", rating: 3.5, avatar_url: 'https://via.placeholder.com/60/90EE90/000000?text=R' },
-        // Promoções/Disponíveis
-        { id: 5, full_name: "Designer Pedro Rocha", email: "p1@t.com", servico_principal: "Designer Gráfico", cidade: "Salvador", rating: 4.1, avatar_url: 'https://via.placeholder.com/60/FFA07A/000000?text=P' },
-        { id: 6, full_name: "Encanador João Alves", email: "j2@t.com", servico_principal: "Encanador", cidade: "Recife", rating: 4.9, avatar_url: 'https://via.placeholder.com/60/87CEFA/000000?text=J' },
-        { id: 7, full_name: "Ajudante de Mudança", email: "a2@t.com", servico_principal: "Transporte", cidade: "Porto Alegre", rating: 3.9, avatar_url: 'https://via.placeholder.com/60/808080/FFFFFF?text=A' },
-        { id: 8, full_name: "Desenvolvedor Full Stack", email: "d1@t.com", servico_principal: "Tecnologia", cidade: "Brasília", rating: 4.2, avatar_url: 'https://via.placeholder.com/60/F0F8FF/000000?text=D' },
-        // Mais disponíveis
-        { id: 9, full_name: "Jardineiro Local", email: "j3@t.com", servico_principal: "Jardinagem", cidade: "Florianópolis", rating: 4.6, avatar_url: 'https://via.placeholder.com/60/20B2AA/FFFFFF?text=J' },
-    ];
+    const [searchResults, setSearchResults] = useState(MOCKED_PROFESSIONALS);
     
-    // MOCK de Serviços (Expandido para incluir todos os da imagem)
-    const MOCKED_SERVICES = [
-        { id: 'ferramentas', name: 'Ferramentas' },
-        { id: 'construcao', name: 'Construção' },
-        { id: 'beleza', name: 'Beleza' },
-        { id: 'eletricista', name: 'Eletricista' },
-        { id: 'saude', name: 'Saúde' },
-        { id: 'financas', name: 'Finanças' },
-        { id: 'alimentos', name: 'Alimentos' },
-        { id: 'educacao', name: 'Educação' },
-        { id: 'tecnologia', name: 'Tecnologia' },
-        { id: 'servicos', name: 'Serviços' },
-        { id: 'jardinagem', name: 'Jardinagem' },
-        { id: 'destaques', name: 'Destaques' },
-        { id: 'promocoes', name: 'Promoções' },
-        { id: 'certificados', name: 'Certificados' },
-        { id: 'entregas', name: 'Entregas' },
-        { id: 'limpeza', name: 'Limpeza' },
-    ];
-
-
-    // --- EFEITO 1: CARREGAR DADOS (MOCKADO) ---
-    useEffect(() => {
-        const fetchData = async () => {
-             await new Promise(resolve => setTimeout(resolve, 500)); 
-
-            try {
-                const dataWithService = MOCKED_PROFESSIONALS.map(prof => ({
-                    ...prof,
-                    // Mapeia o serviço pelo nome principal limpo
-                    service_id: cleanServiceName(prof.servico_principal), 
-                }));
-
-                setServices(MOCKED_SERVICES);
-                setProfessionals(dataWithService); 
-            } catch (err) {
-                setError("Não foi possível carregar os dados de profissionais ou serviços (MOCK).");
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
-    }, []);
-
-    // --- LÓGICA DE FILTRO ---
-    const filteredProfessionals = professionals.filter(prof => {
-        const serviceMatch = selectedServiceId === 'Todos' || prof.service_id === cleanServiceName(selectedServiceId);
-        const search = searchTerm.toLowerCase();
+    // LÓGICA DE BUSCA (Mockada)
+    const handleSearch = (e) => {
+        e.preventDefault();
         
-        const nameMatch = prof.full_name ? prof.full_name.toLowerCase().includes(search) : false;
-        const serviceAreaMatch = prof.servico_principal ? prof.servico_principal.toLowerCase().includes(search) : false;
-
-        return serviceMatch && (nameMatch || serviceAreaMatch);
-    });
-    
-    // Simulação de agrupamento: 4 Destaques, 4 Promoções, Restante Disponíveis
-    const highlights = filteredProfessionals.slice(0, 4);
-    const promotions = filteredProfessionals.length > 4 ? filteredProfessionals.slice(4, 8) : [];
-    const available = filteredProfessionals.slice(highlights.length + promotions.length);
-
-    // --- FUNÇÃO AUXILIAR PARA RENDERIZAR O ÍCONE ---
-    const getServiceIcon = (serviceName) => {
-        const key = cleanServiceName(serviceName);
-        return ICON_MAP[key] || ICON_MAP['geral'];
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            const filtered = MOCKED_PROFESSIONALS.filter(p => 
+                p.name.toLowerCase().includes(term) || 
+                p.service.toLowerCase().includes(term) ||
+                p.city.toLowerCase().includes(term)
+            );
+            setSearchResults(filtered);
+        } else {
+            setSearchResults(MOCKED_PROFESSIONALS);
+        }
     };
-
-    if (loading) {
-        return (
-            <Container className="text-center py-5" style={{ minHeight: '80vh', backgroundColor: '#343a40' }}>
-                <Spinner animation="border" style={{ color: 'var(--primary-color)' }} />
-                <p className="mt-2 text-white">Buscando...</p>
-            </Container>
-        );
-    }
-
-    if (error) {
-        return (
-            <Container className="py-5" style={{ minHeight: '80vh', backgroundColor: '#343a40' }}>
-                <Alert variant="danger">{error}</Alert>
-            </Container>
-        );
-    }
     
-    // Seção para renderizar os cards de uma categoria
-    const ProfessionalsSection = ({ title, professionalsList }) => (
-        <>
-            <h3 className="text-dark text-center fw-bold mt-5 mb-3">{title}</h3>
-            {professionalsList.length > 0 ? (
-                <Row className="justify-content-center">
-                    {professionalsList.map(prof => (
-                        <ProfileCard key={prof.id} professional={prof} />
-                    ))}
-                </Row>
-            ) : (
-                <p className="text-center text-secondary">Nenhum profissional encontrado nesta categoria.</p>
-            )}
-        </>
-    );
-
+    // ----------------------------------------------------------------
+    // RENDERIZAÇÃO
+    // ----------------------------------------------------------------
+    
     return (
-        // O fundo do MainFeed deve ser branco/claro, mas o Header/Footer escuro, 
-        // para replicar o contraste da imagem.
-        <div style={{ backgroundColor: 'white', minHeight: '100vh' }}>
-            
-            {/* 1. BARRA DE CATEGORIAS (TOPO) - Layout da Imagem */}
-            {/* Mantido como um componente isolado. Idealmente, ele estaria no Header */}
-            <div className="bg-dark shadow-lg py-2 border-bottom border-warning">
+        <>
+            {/* 1. BARRA DE CATEGORIAS */}
+            <div className="bg-dark border-bottom border-warning py-2 overflow-auto">
                 <Container>
-                    <div className="d-flex overflow-auto py-2">
-                         {/* Botão TODOS */}
-                        <CategoryButton
-                            name="Todos"
-                            IconComponent={ICON_MAP['geral'].Icon} 
-                            isSelected={'Todos' === selectedServiceId}
-                            onClick={() => setSelectedServiceId('Todos')}
-                        />
-                        
-                        {/* Mapeia as categorias da API (ou MOCK) */}
-                        {services.map(service => {
-                            const iconData = getServiceIcon(service.name);
-                            const IconComponent = iconData?.Icon || ICON_MAP['geral'].Icon;
-                            const serviceId = cleanServiceName(service.name);
-                            
-                            return (
-                                <CategoryButton
-                                    key={serviceId}
-                                    name={service.name}
-                                    IconComponent={IconComponent}
-                                    isSelected={serviceId === selectedServiceId}
-                                    onClick={() => setSelectedServiceId(serviceId)}
-                                />
-                            );
-                        })}
+                    <div className="d-flex flex-nowrap align-items-center">
+                        {MOCKED_CATEGORIES.map(cat => (
+                            <Button
+                                key={cat.name}
+                                variant={cat.name === 'Todos' ? "warning" : "outline-light"}
+                                onClick={() => console.log(`Filtro: ${cat.name}`)}
+                                className="d-flex align-items-center me-2 flex-shrink-0"
+                            >
+                                {getCategoryIcon(cat.name)} {cat.name}
+                            </Button>
+                        ))}
                     </div>
                 </Container>
             </div>
-            
-            {/* 2. BARRA DE BUSCA E BANNER (Opcional) */}
-            {/* O design que você enviou antes (image_3e7096.png) tem a busca, 
-                então vamos incluí-la no topo do conteúdo. */}
-            <Container className="mt-4 mb-5">
-                <Row className="justify-content-center">
+
+            <Container className="my-4">
+                
+                {/* 2. CAMPO DE BUSCA */}
+                <Row className="justify-content-center mb-5">
                     <Col md={8}>
-                        <Form>
-                            <Form.Group className="d-flex shadow-sm">
-                                <Form.Control
-                                    type="text"
-                                    placeholder="Busque por nome, e-mail ou tipo de serviço..."
+                        <Form onSubmit={handleSearch}>
+                            <InputGroup className="shadow">
+                                <FormControl
+                                    type="search"
+                                    placeholder="Busque por nome, serviço ou cidade..."
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
-                                    className="border-warning"
-                                    style={{ borderRadius: '4px 0 0 4px' }}
+                                    className="p-3 border-end-0 border-warning"
+                                    style={{ height: '60px', backgroundColor: '#333', color: 'white' }}
                                 />
-                                <Button variant="warning" style={{ borderRadius: '0 4px 4px 0' }}>
-                                    <Search size={20} className="text-dark" /> Buscar
+                                <Button 
+                                    variant="warning" 
+                                    type="submit" 
+                                    className="px-4 fw-bold"
+                                    style={{ height: '60px' }}
+                                >
+                                    <Search size={24} className="text-dark" /> Buscar
                                 </Button>
-                            </Form.Group>
+                            </InputGroup>
                         </Form>
                     </Col>
                 </Row>
-            </Container>
-
-            {/* 3. IMAGENS/BANNER DE DESTAQUE (Simuladas) */}
-            <Container className="mb-5">
-                <Row className="g-2">
-                    {/* Simula as imagens/banners visíveis na imagem de referência */}
-                    <Col md={3} xs={6}><div style={{ height: '150px', backgroundColor: '#e9ecef', borderRadius: '4px' }}></div></Col>
-                    <Col md={3} xs={6}><div style={{ height: '150px', backgroundColor: '#e9ecef', borderRadius: '4px' }}></div></Col>
-                    <Col md={3} xs={6}><div style={{ height: '150px', backgroundColor: '#e9ecef', borderRadius: '4px' }}></div></Col>
-                    <Col md={3} xs={6}><div style={{ height: '150px', backgroundColor: '#e9ecef', borderRadius: '4px' }}></div></Col>
+                
+                {/* 3. CARROSSEL DE BANNERS DE DESTAQUE */}
+                <Row className="mb-5">
+                    <Col>
+                        <Carousel 
+                            interval={5000} 
+                            controls={true} 
+                            indicators={true} 
+                            pause="hover" 
+                            className="bg-dark rounded shadow-lg"
+                        >
+                            {MOCKED_BANNERS.map((banner) => (
+                                <Carousel.Item key={banner.id}>
+                                    <Link to={banner.link || '#'} style={{ display: 'block' }}>
+                                        <img
+                                            className="d-block w-100 rounded"
+                                            src={banner.src}
+                                            alt={banner.alt}
+                                            style={{ maxHeight: '300px', objectFit: 'cover' }}
+                                        />
+                                        <Carousel.Caption className="bg-dark bg-opacity-75 p-2 rounded">
+                                            <h3 className="fw-bold text-warning">{banner.alt.split(':')[0]}</h3>
+                                            <p className="d-none d-sm-block small mb-0">{banner.caption}</p>
+                                        </Carousel.Caption>
+                                    </Link>
+                                </Carousel.Item>
+                            ))}
+                        </Carousel>
+                    </Col>
                 </Row>
+
+                {/* 4. LISTAGEM DE PROFISSIONAIS EM DESTAQUE - USANDO O CARD CORRIGIDO */}
+                <h2 className="mb-4 text-warning">Profissionais em Destaque</h2>
+                
+                <Row>
+                    {searchResults.map(pro => (
+                        <Col xs={12} md={6} lg={4} key={pro.id} className="mb-4">
+                            <ProfessionalCard pro={pro} />
+                        </Col>
+                    ))}
+                    
+                    {searchResults.length === 0 && (
+                        <Col>
+                            <Alert variant="info" className="text-dark">Nenhum profissional encontrado com o termo de busca.</Alert>
+                        </Col>
+                    )}
+                </Row>
+
             </Container>
-
-
-            {/* 4. SEÇÕES DE CARDS (DESTAQUES / PROMOÇÕES / DISPONÍVEIS) */}
-            <Container className="mb-5">
-                {/* O texto deve ser escuro (text-dark) já que o fundo é claro (white) */}
-                <ProfessionalsSection title="Destaques" professionalsList={highlights} />
-                <ProfessionalsSection title="Promoções" professionalsList={promotions} />
-                <ProfessionalsSection title="Disponíveis" professionalsList={available} />
-
-                {/* Mensagem se não houver resultados */}
-                {filteredProfessionals.length === 0 && searchTerm && (
-                    <Alert variant="info" className="text-center mt-5 text-dark">
-                        Nenhum profissional encontrado para "{searchTerm}" e categoria selecionada.
-                    </Alert>
-                )}
-            </Container>
-            
-        </div>
+        </>
     );
 };
 
