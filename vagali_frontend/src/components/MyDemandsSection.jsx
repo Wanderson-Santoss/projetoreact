@@ -1,57 +1,43 @@
 import React, { useState, useMemo } from 'react';
 import { Card, Button, Badge, Alert, ListGroup, Collapse } from 'react-bootstrap'; 
 import { Link } from 'react-router-dom';
-import { PlusCircle, Edit, Trash2, ListChecks, Filter, ChevronDown, ChevronUp } from 'lucide-react'; 
+// 💡 CORREÇÃO: Adicionado ChevronRight à lista de ícones
+import { PlusCircle, Edit, Trash2, ListChecks, Filter, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react'; 
 import { useAuth } from './AuthContext'; // Certifique-se de que este caminho está correto
 
-// --- DADOS SIMULADOS PARA TESTE ---
+// --- DADOS SIMULADOS PARA TESTE ---\
 const SIMULATED_DEMANDS = [
     { id: 'd1', title: 'Reparo de vazamento no banheiro', status: 'Pendente', category: 'Hidráulica', date: '2025-11-10', cost: 'R$ 150 - 300' },
     { id: 'd2', title: 'Instalação de lustre na sala', status: 'Em Negociação', category: 'Eletricidade', date: '2025-11-08', cost: 'R$ 500' },
     { id: 'd3', title: 'Pintura da fachada da casa', status: 'Concluída', category: 'Pintura', date: '2025-10-01', cost: 'R$ 2500' },
     { id: 'd4', title: 'Montagem de 3 móveis planejados', status: 'Pendente', category: 'Outros', date: '2025-11-11', cost: 'A definir' },
-    { id: 'd5', title: 'Limpeza de caixa d\'água', status: 'Em Negociação', category: 'Limpeza', date: '2025-11-05', cost: 'R$ 150' },
-    { id: 'd6', title: 'Troca de fiação antiga', status: 'Pendente', category: 'Eletricidade', date: '2025-11-12', cost: 'R$ 1000' },
+    { id: 'd5', title: 'Jardinagem e paisagismo', status: 'Em Negociação', category: 'Jardinagem', date: '2025-11-12', cost: 'R$ 800' },
+    { id: 'd6', title: 'Instalação de ar condicionado', status: 'Concluída', category: 'Climatização', date: '2025-09-15', cost: 'R$ 350' },
 ];
 
-// Mapeamento de Status para Cor
-const STATUS_VARIANT = {
-    'Pendente': 'danger', 
-    'Em Negociação': 'warning', 
-    'Concluída': 'success', 
+const STATUS_MAP = {
+    'Pendente': { variant: 'warning', text: 'Aberto' },
+    'Em Negociação': { variant: 'info', text: 'Conversando' },
+    'Concluída': { variant: 'success', text: 'Fechada' },
+    'Cancelada': { variant: 'danger', text: 'Cancelada' },
 };
 
 const MyDemandsSection = () => {
-    const { isUserProfessional } = useAuth(); 
-    const [currentFilter, setCurrentFilter] = useState('Todas'); 
+    // const { user } = useAuth(); // Assume-se que useAuth está funcionando corretamente agora
     const [demands, setDemands] = useState(SIMULATED_DEMANDS);
-    
-    // ESTADO: Controle de Colapso
-    const [isDemandsCollapsed, setIsDemandsCollapsed] = useState(false); 
+    const [currentFilter, setCurrentFilter] = useState('Todas');
+    const [isOpen, setIsOpen] = useState(true);
 
-    if (isUserProfessional) {
-        return null; 
-    }
-
-    const filterOptions = ['Todas', 'Pendente', 'Em Negociação', 'Concluída'];
-
-    // CÁLCULO: Conta o número de demandas por status
+    // 1. Contagem de status para os botões de filtro
     const statusCounts = useMemo(() => {
-        const counts = {
-            'Todas': demands.length,
-            'Pendente': 0,
-            'Em Negociação': 0,
-            'Concluída': 0,
-        };
-        demands.forEach(demand => {
-            if (counts[demand.status] !== undefined) {
-                counts[demand.status] += 1;
-            }
+        const counts = { 'Todas': demands.length };
+        demands.forEach(d => {
+            counts[d.status] = (counts[d.status] || 0) + 1;
         });
         return counts;
     }, [demands]);
 
-    // Lógica de Filtragem
+    // 2. Filtragem de demandas
     const filteredDemands = useMemo(() => {
         if (currentFilter === 'Todas') {
             return demands;
@@ -59,120 +45,110 @@ const MyDemandsSection = () => {
         return demands.filter(d => d.status === currentFilter);
     }, [demands, currentFilter]);
 
-    // Ação de Deletar
-    const handleDelete = (demandId) => {
-        if (window.confirm("Tem certeza que deseja excluir esta demanda? Esta ação não pode ser desfeita.")) {
-            setDemands(prev => prev.filter(d => d.id !== demandId));
-            console.log(`Demanda ${demandId} excluída.`);
-        }
-    };
-
-    // Renderização de Item de Demanda
+    // 3. Função de renderização de um item de demanda
     const renderDemandItem = (demand) => {
-        const isPending = demand.status === 'Pendente';
-        const isCompleted = demand.status === 'Concluída';
-
+        const statusInfo = STATUS_MAP[demand.status] || { variant: 'secondary', text: 'Desconhecido' };
+        
         return (
             <ListGroup.Item 
                 key={demand.id} 
-                className="d-flex justify-content-between align-items-center flex-wrap"
-                style={{ borderLeft: `5px solid var(--bs-${STATUS_VARIANT[demand.status]})` }}
+                className="d-flex justify-content-between align-items-center py-3 my-1 border-bottom border-light"
+                style={{ backgroundColor: '#f8fafc' }} // Cor de fundo suave
             >
-                <div>
-                    <h6 className="mb-1 fw-bold">{demand.title}</h6>
-                    <small className="text-muted d-block">
-                        Categoria: {demand.category} | Valor Estimado: {demand.cost}
-                    </small>
-                    <small className="text-muted">
-                        Criada em: {demand.date}
-                    </small>
+                <div className="flex-grow-1 me-3">
+                    {/* Título e Categoria */}
+                    <div className="d-flex align-items-center mb-1">
+                        <ListChecks size={20} className="text-primary me-2 flex-shrink-0" />
+                        <Link 
+                            to={`/demanda/${demand.id}`} 
+                            className="fw-bold text-decoration-none text-dark hover-text-warning"
+                        >
+                            {demand.title}
+                        </Link>
+                    </div>
+
+                    {/* Detalhes Secundários */}
+                    <div className="small text-muted ms-4">
+                        <span className="me-3">Categoria: {demand.category}</span>
+                        <span>Custo Estimado: {demand.cost}</span>
+                    </div>
                 </div>
 
-                <div className="d-flex align-items-center mt-2 mt-sm-0">
-                    <Badge bg={STATUS_VARIANT[demand.status]} className="me-2">{demand.status}</Badge>
-
-                    {/* EDITAR (SÓ PODE SE ESTIVER PENDENTE) */}
-                    {isPending && (
+                {/* Status e Ações */}
+                <div className="d-flex flex-column align-items-end flex-shrink-0">
+                    {/* Status */}
+                    <Badge bg={statusInfo.variant} className="mb-2 fw-bold" style={{ minWidth: '100px', textAlign: 'center' }}>
+                        {statusInfo.text}
+                    </Badge>
+                    
+                    {/* Ações */}
+                    <div className="d-flex gap-2">
                         <Button 
-                            as={Link}
-                            to={`/editar-demanda/${demand.id}`} 
-                            variant="outline-secondary" 
+                            variant="outline-primary" 
                             size="sm" 
-                            className="me-2"
-                            title="Editar Demanda"
+                            onClick={() => console.log('Editar demanda:', demand.id)}
+                            title="Editar"
                         >
                             <Edit size={16} />
                         </Button>
-                    )}
-
-                    {/* EXCLUIR (PENDENTE E CONCLUÍDA) */}
-                    {(isPending || isCompleted) && (
                         <Button 
                             variant="outline-danger" 
-                            size="sm"
-                            title="Excluir Demanda"
-                            onClick={() => handleDelete(demand.id)}
+                            size="sm" 
+                            onClick={() => console.log('Cancelar demanda:', demand.id)}
+                            title="Cancelar"
                         >
                             <Trash2 size={16} />
                         </Button>
-                    )}
+                        <Button 
+                            as={Link}
+                            to={`/demanda/${demand.id}`} 
+                            variant="outline-secondary" 
+                            size="sm"
+                            title="Ver Detalhes"
+                        >
+                            {/* O ícone ChevronRight que estava faltando */}
+                            <ChevronRight size={16} /> 
+                        </Button>
+                    </div>
                 </div>
             </ListGroup.Item>
         );
     };
 
+    // 4. Renderização Principal
     return (
-        <Card className="shadow-lg mb-4 border-primary">
-            {/* HEADER COM BOTÃO DE COLAPSO */}
+        <Card className="mb-4 bg-vagali-dark-card shadow">
             <Card.Header 
-                className="fw-bold bg-primary text-white d-flex justify-content-between align-items-center"
-                style={{ cursor: 'pointer' }}
-                onClick={() => setIsDemandsCollapsed(!isDemandsCollapsed)} // Toggle
-                aria-controls="demands-collapse-body"
-                aria-expanded={!isDemandsCollapsed}
+                className="fw-bold fs-5 d-flex justify-content-between align-items-center cursor-pointer" 
+                onClick={() => setIsOpen(!isOpen)}
             >
-                <div className="d-flex align-items-center">
-                    <ListChecks size={20} className="me-2"/> Suas Demandas
-                </div>
-                {isDemandsCollapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+                <ListChecks size={24} className="me-2" /> 
+                Minhas Demandas (Cliente)
+                {isOpen ? <ChevronUp /> : <ChevronDown />}
             </Card.Header>
-            
-            {/* CORPO DO CARD WRAPADO PELO COLLAPSE */}
-            <Collapse in={!isDemandsCollapsed}>
-                <div id="demands-collapse-body">
+            <Collapse in={isOpen}>
+                <div>
                     <Card.Body>
-                        {/* BOTÃO CRIAR NOVA DEMANDA */}
-                        <div className="text-center mb-4">
+                        <div className="mb-3 d-flex flex-wrap gap-2">
                             <Button 
                                 as={Link} 
                                 to="/criar-demanda" 
-                                variant="warning" 
-                                className="fw-bold py-2 px-5"
+                                variant="success" 
+                                className="fw-bold d-flex align-items-center me-3"
+                                size="sm"
                             >
-                                <PlusCircle size={20} className="me-2" /> CRIAR NOVA DEMANDA
+                                <PlusCircle size={20} className="me-2" /> 
+                                Nova Demanda
                             </Button>
-                        </div>
-                        
-                        {/* FILTROS DE STATUS COM CONTAGEM */}
-                        <div className="d-flex flex-wrap align-items-center mb-3">
-                            <span className="me-3 fw-bold d-flex align-items-center text-muted">
-                                <Filter size={18} className="me-1" /> Filtrar por:
-                            </span>
-                            {filterOptions.map(filter => (
+                            {Object.keys(statusCounts).map(filter => (
                                 <Button
                                     key={filter}
-                                    variant={currentFilter === filter ? 'info' : 'outline-secondary'}
-                                    size="sm"
-                                    className="me-2 mb-2"
+                                    variant={currentFilter === filter ? 'warning' : 'outline-secondary'}
                                     onClick={() => setCurrentFilter(filter)}
+                                    size="sm"
                                 >
                                     {filter} 
-                                    {/* Badge com estilo aprimorado */}
-                                    <Badge 
-                                        bg={currentFilter === filter ? 'light' : 'secondary'} 
-                                        text={currentFilter === filter ? 'info' : 'white'} 
-                                        className="ms-1 rounded-pill py-1 px-2"
-                                    >
+                                    <Badge bg={currentFilter === filter ? 'dark' : 'secondary'} className="ms-2">
                                         {statusCounts[filter]}
                                     </Badge>
                                 </Button>

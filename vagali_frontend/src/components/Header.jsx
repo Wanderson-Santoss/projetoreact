@@ -10,10 +10,12 @@ const Header = () => {
     // 1. Consome o estado e as funções do AuthContext
     const { 
         isAuthenticated, 
-        isUserProfessional, 
-        userId, 
+        user, // 🔑 AGORA USAMOS O OBJETO 'user'
         logout // Função de logout centralizada
     } = useAuth();
+
+    // Determina se o usuário é profissional (Seguro com Optional Chaining)
+    const isProfessional = user?.is_professional; 
 
     return (
         <Navbar bg="dark" variant="dark" expand="lg" className="shadow-sm border-bottom border-warning">
@@ -22,25 +24,26 @@ const Header = () => {
                 <Navbar.Toggle aria-controls="basic-navbar-nav" />
                 <Navbar.Collapse id="basic-navbar-nav">
                     <Nav className="ms-auto d-flex align-items-center">
+                        {/* LINK FIXO: INÍCIO */}
                         <Nav.Link as={Link} to="/" className="me-3">Início</Nav.Link>
                         
                         {/* 2. Lógica Condicional: Exibe links diferentes se autenticado */}
                         {isAuthenticated ? (
-                            // --- USUÁRIO LOGADO: Minha Conta e (opcionalmente) Meu Portfólio ---
+                            // --- USUÁRIO LOGADO ---
                             <>
-                                {/* Minha Conta (Sempre visível para logados) */}
-                                <Nav.Link as={Link} to="/meu-perfil" className="d-flex align-items-center me-3 text-white-50">
+                                {/* LINK FIXO: MINHA CONTA */}
+                                <Nav.Link as={Link} to="/meu-perfil" className="me-3 d-flex align-items-center">
                                     <User size={18} className="me-1" /> Minha Conta
                                 </Nav.Link>
-                                
-                                {/* Meu Portfólio (SÓ PARA PROFISSIONAIS) */}
-                                {isUserProfessional && (
-                                    <Nav.Link as={Link} to={`/professional/${userId}`} className="d-flex align-items-center me-3 text-white-50">
+
+                                {/* 🔑 LINK CONDICIONAL: MEU PORTFÓLIO (SÓ PARA PROFISSIONAIS) */}
+                                {isProfessional && (
+                                    <Nav.Link as={Link} to="/meu-portfolio" className="me-3 d-flex align-items-center">
                                         <Briefcase size={18} className="me-1" /> Meu Portfólio
                                     </Nav.Link>
                                 )}
-                                
-                                {/* Botão SAIR (Chama o logout do Contexto) */}
+
+                                {/* BOTÃO SAIR */}
                                 <Button
                                     variant="outline-danger"
                                     size="sm"

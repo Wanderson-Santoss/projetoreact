@@ -16,11 +16,14 @@ import PasswordResetConfirm from './components/PasswordResetConfirm';
 
 // COMPONENTES PRINCIPAIS
 import ProfessionalSearch from './components/ProfessionalSearch';
-import ProfessionalProfileView from './components/ProfessionalProfileView';
+// 🔑 Importação do componente de EDIÇÃO do Portfólio (Corrigido e Completo)
+import ProfessionalProfileView from './components/ProfessionalProfileView'; 
 import ProfessionalSchedule from './components/ProfessionalSchedule'; 
 import ProfileManagement from './components/ProfileManagement'; 
 import CreateDemand from './components/CreateDemand';           
 import ChatWrapper from './components/ChatWrapper'; 
+// ✅ NOVO: COMPONENTE DE VISUALIZAÇÃO PÚBLICA (Criado no passo anterior)
+import ProfessionalPublicProfile from './components/ProfessionalPublicProfile'; // <-- NOVO
 
 // ✅ IMPORTAÇÃO DO CONTEXTO DE AUTENTICAÇÃO (AuthContext.jsx)
 import { AuthProvider } from './components/AuthContext';
@@ -38,11 +41,20 @@ function App() {
             <Layout>
                 <Routes>
                     
-                    {/* 🔍 ROTAS DE BUSCA E PERFIL DO PROFISSIONAL */}
-                    <Route path="/" element={<ProfessionalSearch />} />
+                    {/* 🎯 AJUSTE 1: A ROTA RAIZ (Padrão/Início) agora aponta para o MainFeed */}
+                    <Route path="/" element={<MainFeed />} /> {/* <-- AJUSTADO */}
+                    <Route path="/feed" element={<MainFeed />} /> {/* Mantida como alternativa */}
+
+                    {/* Rota que usava o ProfessionalSearch (pode ser removida ou ajustada) */}
+                    {/* <Route path="/busca" element={<ProfessionalSearch />} /> */}
                     
-                    <Route path="/perfil/:id" element={<ProfessionalProfileView />} />
-                    <Route path="/professional/:id" element={<ProfessionalProfileView />} /> 
+                    {/* 🎯 AJUSTE 2: ROTAS DE VISUALIZAÇÃO PÚBLICA (Usando o novo componente) */}
+                    {/* Rota mais limpa para visualização pública do perfil: /profissionais/123 */}
+                    <Route path="/profissionais/:professionalId" element={<ProfessionalPublicProfile />} /> 
+                    
+                    {/* Rotas antigas redirecionadas para o novo componente para evitar quebras */}
+                    <Route path="/perfil/:id" element={<ProfessionalPublicProfile />} /> 
+                    <Route path="/professional/:id" element={<ProfessionalPublicProfile />} /> 
                     <Route path="/professional/:id/schedule" element={<ProfessionalSchedule />} />
 
 
@@ -54,14 +66,17 @@ function App() {
                     <Route path="/change-password" element={<ChangePassword />} />
 
 
-                    {/* 🔑 ROTAS CONSOLIDADAS DO PAINEL DO USUÁRIO LOGADO */}
+                    {/* 🔑 ROTAS CONSOLIDADAS DO PAINEL DO USUÁRIO LOGADO (Edição/Gerenciamento) */}
                     <Route path="/meu-perfil" element={<ProfileManagement />} />
+
+                    {/* 🎯 ROTA DE EDIÇÃO DO PORTFÓLIO DO PROFISSIONAL LOGADO */}
+                    <Route path="/meu-portfolio" element={<ProfessionalProfileView />} /> 
+
                     <Route path="/criar-demanda" element={<CreateDemand />} />
                     <Route path="/editar-demanda/:id" element={<CreateDemand isEditing={true} />} />
-                    <Route path="/feed" element={<MainFeed />} />
                         
                     
-                    {/* 💬 ROTAS DE CHAT (Consolidadas para o layout de duas colunas) */}
+                    {/* 💬 ROTAS DE CHAT */}
                     <Route path="/mensagens" element={<ChatWrapper />} /> 
                     <Route path="/mensagens/:id" element={<ChatWrapper />} /> 
                     

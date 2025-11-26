@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-//  URL DE LOGIN
+// URL DE LOGIN
 const LOGIN_URL = '/api/v1/auth/custom-login/'; 
 
 const AuthContext = createContext();
@@ -13,109 +13,29 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
     const navigate = useNavigate();
-    // Estado para armazenar o objeto do usuário (id, email, is_professional)
-    const [user, setUser] = useState(null); 
+    
+    // CRÍTICO: Lê o token e o usuário do localStorage na inicialização
+    const [user, setUser] = useState(() => {
+        const storedUser = localStorage.getItem('user');
+        return storedUser ? JSON.parse(storedUser) : null;
+    }); 
     const [token, setToken] = useState(localStorage.getItem('token') || null);
     const [isAuthenticated, setIsAuthenticated] = useState(!!token);
     const [loading, setLoading] = useState(false);
-
-    // Efeito para configurar o token globalmente no Axios e carregar dados do localStorage
-    useEffect(() => {
-        if (token) {
-            // Aplica o token no header do Axios para todas as requisições autenticadas
-            axios.defaults.headers.common['Authorization'] = `Token ${token}`;
-            setIsAuthenticated(true);
-            
-            // Tenta carregar dados do usuário do localStorage (para persistir entre reloads)
-            const storedUser = localStorage.getItem('user');
-            if (storedUser) {
-                try {
-                    // Tenta garantir que o usuário está logado, mesmo após um refresh
-                    // CRÍTICO: Garante que o estado do usuário seja preenchido
-                    setUser(JSON.parse(storedUser)); 
-                } catch (e) {
-                    console.error("Erro ao carregar usuário do localStorage", e);
-                    logout(); // Limpa se o dado estiver corrompido
-                }
-            }
-        } else {
-            // Limpa o token se não houver
-            axios.defaults.headers.common['Authorization'] = '';
-            setIsAuthenticated(false);
-            setUser(null);
-        }
-    }, [token]);
-
-    // Atualiza o status de profissional no Contexto e no localStorage
-    const setUserRole = (is_professional_status) => {
-        setUser(prevUser => {
-            if (!prevUser) return null;
-            
-            // Cria um novo objeto user com o status atualizado
-            const newUser = { ...prevUser, is_professional: is_professional_status };
-            
-            // CRÍTICO: Atualiza o localStorage para manter a persistência
-            localStorage.setItem('user', JSON.stringify(newUser));
-            
-            return newUser;
-        });
-    };
     
-    //  Atualiza o nome completo no Contexto e no localStorage
-    const setUserName = (fullName) => {
+    // Funções de atualização local (permanecem as mesmas)
+    const updateUserData = (updates) => {
         setUser(prevUser => {
-            if (!prevUser) return null;
-            
-            // Cria um novo objeto user com o nome atualizado
-            const newUser = { ...prevUser, full_name: fullName };
-            
-            // CRÍTICO: Atualiza o localStorage para manter a persistência
-            localStorage.setItem('user', JSON.stringify(newUser));
-            
+            if (!prevUser) return prevUser;
+            const newUser = { ...prevUser, ...updates }; 
+            localStorage.setItem('user', JSON.stringify(newUser)); 
             return newUser;
         });
     };
+    const setUserName = (name) => { updateUserData({ full_name: name }); };
+    const setUserRole = (isProfessional) => { updateUserData({ is_professional: isProfessional }); };
 
-    const login = async (email, password) => {
-        setLoading(true);
-        try {
-            const response = await axios.post(LOGIN_URL, { 
-                email: email, 
-                password: password 
-            });
-            const data = response.data;
-            
-            if (!data.token || !data.user_id) {
-                throw new Error("Resposta da API incompleta (faltando ID ou Token).");
-            }
-
-            // 1. Salva o Token
-            setToken(data.token);
-            localStorage.setItem('token', data.token);
-
-            // 2. Salva os Dados do Usuário
-            const userData = {
-                id: data.user_id,
-                email: data.email,
-                is_professional: data.is_professional,
-                // Adicionar o full_name aqui se o seu endpoint de login retornar
-                full_name: data.full_name || '', // <-- Importante: Adicionar full_name se o backend retornar
-            };
-            setUser(userData);
-            localStorage.setItem('user', JSON.stringify(userData));
-
-            setIsAuthenticated(true);
-            
-            console.log("Login bem-sucedido:", userData); 
-
-        } catch (error) {
-            console.error('Login falhou:', error);
-            throw error; 
-        } finally {
-            setLoading(false);
-        }
-    };
-
+    // FUNÇÃO DE LOGOUT (centralizada)
     const logout = () => {
         setToken(null);
         setUser(null);
@@ -125,7 +45,81 @@ export const AuthProvider = ({ children }) => {
         axios.defaults.headers.common['Authorization'] = '';
         
         setIsAuthenticated(false);
-        navigate('/login');
+        navigate('/login'); // Redireciona para o login
+    };
+
+    // EFEITO 1: Configura o token globalmente no Axios e autenticação
+    useEffect(() => {
+        if (token) {
+            // ✅ Aplica o token no header do Axios para todas as requisições
+            axios.defaults.headers.common['Authorization'] = `Token ${token}`;
+            setIsAuthenticated(true);
+        } else {
+            // Limpa o header
+            axios.defaults.headers.common['Authorization'] = '';
+            setIsAuthenticated(false);
+        }
+    }, [token]);
+
+    // EFEITO 2: Configura o Interceptor de Resposta do Axios
+    useEffect(() => {
+        const interceptor = axios.interceptors.response.use(
+            // Se a resposta for bem-sucedida (2xx), apenas retorna
+            response => response,
+            
+            // Se a resposta for um erro (não 2xx)
+            error => {
+                // ⚠️ LÓGICA CRÍTICA: Se o status for 401 (Unauthorized) e o usuário estiver autenticado
+                const status = error.response ? error.response.status : null;
+                
+                if (status === 401 && isAuthenticated) {
+                    // Previne loop infinito se o logout também disparar uma requisição
+                    // A requisição falhou devido a expiração, force o logout
+                    console.warn("Token Expirado. Logout automático acionado.");
+                    logout(); 
+                    
+                    // Retorna um Promise rejeitada para parar o fluxo da requisição original
+                    return Promise.reject(error);
+                }
+                
+                // Para qualquer outro erro, apenas retorna o erro
+                return Promise.reject(error);
+            }
+        );
+
+        // Função de limpeza: remove o interceptor quando o componente for desmontado
+        return () => {
+            axios.interceptors.response.eject(interceptor);
+        };
+    }, [isAuthenticated, logout]); // Dependências do interceptor
+
+    // Funções de Login (permanecem as mesmas)
+    const login = async (email, password) => {
+        setLoading(true);
+        try {
+            const response = await axios.post(LOGIN_URL, { email, password });
+            const data = response.data;
+            
+            setToken(data.token);
+            localStorage.setItem('token', data.token);
+
+            const userData = {
+                id: data.user_id,
+                email: data.email,
+                is_professional: data.is_professional,
+                full_name: data.full_name || '',
+            };
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+            setIsAuthenticated(true);
+            
+            console.log("Login bem-sucedido:", userData); 
+        } catch (error) {
+            console.error('Login falhou:', error);
+            throw error; 
+        } finally {
+            setLoading(false);
+        }
     };
 
     const value = {
@@ -137,6 +131,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         setUserRole, 
         setUserName, 
+        updateUserData,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
