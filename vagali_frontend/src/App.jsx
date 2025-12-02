@@ -14,6 +14,7 @@ import ChangePassword from './components/ChangePassword';
 import ForgotPassword from './components/ForgotPassword';
 import PasswordResetConfirm from './components/PasswordResetConfirm';
 
+
 // COMPONENTES PRINCIPAIS
 import ProfessionalSearch from './components/ProfessionalSearch';
 // 🔑 Importação do componente de EDIÇÃO do Portfólio (Corrigido e Completo)

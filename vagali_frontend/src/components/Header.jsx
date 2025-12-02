@@ -10,45 +10,42 @@ const Header = () => {
     // 1. Consome o estado e as funções do AuthContext
     const { 
         isAuthenticated, 
-        user, // 🔑 AGORA USAMOS O OBJETO 'user'
-        logout // Função de logout centralizada
+        user,
+        logout 
     } = useAuth();
 
     // Determina se o usuário é profissional (Seguro com Optional Chaining)
     const isProfessional = user?.is_professional; 
 
     return (
-        <Navbar bg="dark" variant="dark" expand="lg" className="shadow-sm border-bottom border-warning">
+        <Navbar expand="lg" className="shadow-sm border-bottom border-primary header-custom-dark" variant="dark">
             <Container>
-                <Navbar.Brand as={Link} to="/" className="fw-bold fs-4 text-warning">VagALI</Navbar.Brand>
+                <Navbar.Brand as={Link} to="/" className="fw-bold fs-4 text-primary">VagAli</Navbar.Brand>
                 <Navbar.Toggle aria-controls="basic-navbar-nav" />
                 <Navbar.Collapse id="basic-navbar-nav">
                     <Nav className="ms-auto d-flex align-items-center">
-                        {/* LINK FIXO: INÍCIO */}
-                        <Nav.Link as={Link} to="/" className="me-3">Início</Nav.Link>
                         
-                        {/* 2. Lógica Condicional: Exibe links diferentes se autenticado */}
+                        <Nav.Link as={Link} to="/" className="me-3 text-light">Início</Nav.Link>
+                        
                         {isAuthenticated ? (
                             // --- USUÁRIO LOGADO ---
                             <>
-                                {/* LINK FIXO: MINHA CONTA */}
-                                <Nav.Link as={Link} to="/meu-perfil" className="me-3 d-flex align-items-center">
+                                <Nav.Link as={Link} to="/meu-perfil" className="me-3 d-flex align-items-center text-light">
                                     <User size={18} className="me-1" /> Minha Conta
                                 </Nav.Link>
 
-                                {/* 🔑 LINK CONDICIONAL: MEU PORTFÓLIO (SÓ PARA PROFISSIONAIS) */}
+                                {/* 🔑 CORREÇÃO AQUI: As chaves extras foram removidas! */}
                                 {isProfessional && (
-                                    <Nav.Link as={Link} to="/meu-portfolio" className="me-3 d-flex align-items-center">
+                                    <Nav.Link as={Link} to="/meu-portfolio" className="me-3 d-flex align-items-center text-light">
                                         <Briefcase size={18} className="me-1" /> Meu Portfólio
                                     </Nav.Link>
                                 )}
 
-                                {/* BOTÃO SAIR */}
                                 <Button
                                     variant="outline-danger"
                                     size="sm"
                                     className="d-flex align-items-center fw-bold"
-                                    onClick={logout} // Chama a função centralizada do AuthContext
+                                    onClick={logout}
                                 >
                                     <LogOut size={16} className="me-1" /> Sair
                                 </Button>
@@ -56,13 +53,11 @@ const Header = () => {
                         ) : (
                             // --- USUÁRIO NÃO LOGADO: Login e Cadastro ---
                             <>
-                                {/* Login */}
-                                <Nav.Link as={Link} to="/login" className="d-flex align-items-center me-2 text-warning">
+                                <Nav.Link as={Link} to="/login" className="d-flex align-items-center me-2 text-light">
                                     <LogIn size={18} className="me-1" /> Login
                                 </Nav.Link>
                                 
-                                {/* Cadastro */}
-                                <Button as={Link} to="/register" variant="warning" className="d-flex align-items-center fw-bold">
+                                <Button as={Link} to="/register" variant="primary" className="d-flex align-items-center fw-bold">
                                     <UserPlus size={18} className="me-1" /> Cadastro
                                 </Button>
                             </>

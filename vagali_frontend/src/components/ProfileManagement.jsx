@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Row, Col, Card, Button, Form, Alert, Spinner, Collapse, Pagination } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, Alert, Spinner, Collapse } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Briefcase, User, Repeat, Settings, ListChecks, MapPin, Camera, ChevronDown, ChevronUp, MessageSquare, LogOut, Heart } from 'lucide-react';
@@ -52,7 +52,6 @@ const ProfileManagement = () => {
         }
 
         try {
-            // Linha 33
             const response = await axios.get(API_BASE_URL); 
             setProfileData(response.data);
             
@@ -89,7 +88,6 @@ const ProfileManagement = () => {
 
 
     // Efeito: Chama fetchProfile na montagem
-    // Linha 57
     useEffect(() => {
         fetchProfile();
     }, [fetchProfile]); 
@@ -131,7 +129,6 @@ const ProfileManagement = () => {
         
         try {
             // 🔑 Requisição PATCH para o endpoint do perfil, usando API_ROLE_URL
-            // O backend deve aceitar a atualização do campo is_professional neste endpoint.
             const response = await axios.patch(API_ROLE_URL, { 
                 is_professional: newRoleStatus 
             }); 
@@ -213,8 +210,9 @@ const ProfileManagement = () => {
     if (loading || !profileData) {
         return (
             <Container className="text-center py-5">
-                <Spinner animation="border" variant="warning" />
-                <p className="text-white-50 mt-2">Carregando perfil...</p>
+                {/* Cor do Spinner ajustada para 'primary' (azul) */}
+                <Spinner animation="border" variant="primary" /> 
+                <p className="text-muted mt-2">Carregando perfil...</p> {/* Texto em cinza escuro */}
             </Container>
         );
     }
@@ -224,7 +222,8 @@ const ProfileManagement = () => {
     
     return (
         <Container className="my-5">
-            <h2 className="text-white mb-4">Gerenciamento de Perfil</h2>
+            {/* Título em cor escura para tema claro */}
+            <h2 className="text-dark mb-4">Gerenciamento de Perfil</h2> 
             
             {success && <Alert variant="success">{success}</Alert>}
             {error && <Alert variant="danger">{error}</Alert>}
@@ -232,10 +231,11 @@ const ProfileManagement = () => {
             <Row>
                 <Col md={4} className="mb-4">
                     
-                    {/* CARD DE NAVEGAÇÃO / LOGOUT */}
+                    {/* CARD DE NAVEGAÇÃO / LOGOUT - Fundo branco/claro e texto escuro */}
                     <Card className="bg-vagali-dark-card p-3 shadow-sm mt-3">
-                         <Button 
-                            variant="warning" 
+                        <Button 
+                            // Cor do botão principal alterada para 'primary' (azul)
+                            variant="primary" 
                             className="w-100 fw-bold d-flex justify-content-center align-items-center mb-2"
                             onClick={() => setOpenProfile(!openProfile)}
                         >
@@ -247,7 +247,8 @@ const ProfileManagement = () => {
                     <Card className="bg-vagali-dark-card p-3 shadow-sm mt-3">
                         <Button 
                             // Alterna a cor do botão para o papel que está prestes a ser ativado
-                            variant={user.is_professional ? 'outline-warning' : 'success'} 
+                            // Usando 'primary' (azul) para o Cliente e 'success' (verde) ou 'info' para Profissional (para distinguir)
+                            variant={user.is_professional ? 'info' : 'success'} 
                             className="w-100 fw-bold d-flex justify-content-center align-items-center"
                             onClick={handleRoleSwitch}
                             disabled={loading}
@@ -255,8 +256,8 @@ const ProfileManagement = () => {
                             <Repeat size={20} className="me-2" /> 
                             Mudar para {nextRole}
                         </Button>
-                        <p className="small text-white-50 mt-2 text-center">
-                            Seu papel atual: <span className="fw-bold text-warning">{currentRole}</span>
+                        <p className="small text-muted mt-2 text-center">
+                            Seu papel atual: <span className="fw-bold text-primary">{currentRole}</span> {/* Texto em azul */}
                         </p>
                     </Card>
 
@@ -276,16 +277,16 @@ const ProfileManagement = () => {
                 <Col md={8}>
                     {/* CARD PRINCIPAL DE PERFIL */}
                     <Card className="bg-vagali-dark-card p-4 shadow mb-4">
-                        <Card.Title className="border-bottom border-warning pb-2 mb-3">
+                        <Card.Title className="border-bottom border-primary pb-2 mb-3 text-dark"> {/* Borda azul e texto escuro */}
                             Informações Pessoais 
                         </Card.Title>
 
                         <Collapse in={openProfile}>
                             <div>
                                 <Form onSubmit={handleProfileUpdate}>
-                                     <Row>
+                                    <Row>
                                         <Form.Group as={Col} md={6} controlId="formFullName" className="mb-3">
-                                            <Form.Label className="text-white-50">Nome Completo</Form.Label>
+                                            <Form.Label className="text-muted">Nome Completo</Form.Label> {/* Label em cinza */}
                                             <Form.Control
                                                 type="text"
                                                 name="full_name"
@@ -297,7 +298,7 @@ const ProfileManagement = () => {
                                         </Form.Group>
 
                                         <Form.Group as={Col} md={12} controlId="formBio" className="mb-3">
-                                            <Form.Label className="text-white-50">Biografia / Sobre Você</Form.Label>
+                                            <Form.Label className="text-muted">Biografia / Sobre Você</Form.Label> {/* Label em cinza */}
                                             <Form.Control
                                                 as="textarea"
                                                 rows={3}
@@ -311,7 +312,8 @@ const ProfileManagement = () => {
 
                                     <Button 
                                         type="submit" 
-                                        variant="warning" 
+                                        // Cor do botão de salvar alterada para 'primary' (azul)
+                                        variant="primary" 
                                         className="w-100 fw-bold mt-3 py-2"
                                         disabled={loading}
                                     >

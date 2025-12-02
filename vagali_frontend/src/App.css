@@ -1,230 +1,298 @@
 /* ========================================================== */
-/* VARIÁVEIS GLOBAIS */
+/* VARIÁVEIS GLOBAIS (AZUL E CINZA) */
 /* ========================================================== */
 :root {
-    --primary-color: #993213; /* Marrom Principal (Vagali) */
-    --accent-color: #f59e0b; /* Amarelo/Laranja de destaque */
-    --light-bg: #f8fafc; /* Fundo claro padrão (se necessário) */
-    --dark-text: #1e293b; /* Texto escuro */
-    --light-text: #64748b; /* Texto claro (cinza) */
-    --header-bg: #f1f5f9; /* Fundo Escuro para a página principal e Header */
-    --vagali-dark-card: #ffffff; /* Fundo dos cards escuros (Auth/Perfil) */
-    --vagali-link: #4f46e5; /* Cor de links e textos clicáveis */
-    --btn-success-color: #2E8B57; /* Verde para botões de Cadastro */
-  }
-  
+  --primary-color: #0d6efd; /* Azul Principal (Bootstrap Primary) */
+  --accent-color: #17a2b8; /* Ciano/Azul de Destaque */
+  --light-bg: #f8fafc; /* Fundo claro principal (Off-White) */
+  --dark-bg: #212529; /* Fundo escuro (para texto) */
+  --dark-text: #212529; /* Texto escuro */
+  --light-text: #f8f9fa; /* Texto claro */
+  --header-bg: #e9ecef; /* Fundo de Header/Página (Cinza Claro) */
+  --vagali-dark-card: #ffffff; /* Fundo dos cards (Branco) */
+  --vagali-link: #0d6efd; /* Cor de links e textos clicáveis (Azul) */
+  --btn-success-color: #198754; /* Verde padrão para sucesso */
+  --btn-danger-color: #dc3545; /* Vermelho padrão para perigo */
 
 
-
-
-/* Estilização para inputs em tema CLARO */
-.form-control-dark {
-    background-color: var(--light-bg); /* Fundo claro */
-    border: 1px solid #ccc; /* Borda cinza suave */
-    color: var(--dark-text); /* Texto escuro */
-}
-.form-control-dark:focus {
-    background-color: var(--light-bg);
-    border-color: var(--primary-color);
-    color: var(--dark-text);
-    box-shadow: 0 0 0 0.25rem rgba(153, 50, 19, 0.25); 
+  --cor-texto-princilap:#db4e2b; 
 }
 
 
-/* Garante que o corpo use o fundo claro principal */
+
+
+/* ========================================================== */
+/* ESTILO CUSTOMIZADO PARA O RODAPÉ ESCURO (AZUL/CINZA) */
+/* ========================================================== */
+
+.footer-custom-dark {
+  /* Usa a variável de fundo escuro que você definiu: --dark-bg: #212529 */
+  background-color: var(--dark-bg) !important; 
+  color: var(--light-text) !important; /* Texto claro */
+}
+
+.footer-custom-dark .text-white-50 {
+  /* Mantém o texto secundário (links) em tom claro */
+  color: #adb5bd !important;
+}
+
+.footer-custom-dark a.text-white-50:hover {
+  /* Aplica o azul primário no hover dos links */
+  color: var(--primary-color) !important;
+}
+
+/* ========================================================== */
+/* SOBRESCRITA DAS CLASSES BOOTSTRAP */
+/* ========================================================== */
+
+/* Garante que qualquer elemento com a classe text-primary use a sua variável */
+.text-primary {
+  color: var(--cor-texto-princilap) !important;
+}
+
+/* Garante que qualquer elemento com a classe border-primary use a sua variável */
+.border-primary {
+  border-color: var(--primary-color) !important;
+}
+
+/* Garante que qualquer elemento com a classe bg-primary use a sua variável */
+.bg-primary {
+  background-color: var(--primary-color) !important;
+}
+
+/* E, se você usar botões primários: */
+.btn-primary {
+  --bs-btn-bg: var(--primary-color);
+  --bs-btn-border-color: var(--primary-color);
+  --bs-btn-hover-bg: #0b5ed7; /* Um tom ligeiramente mais escuro para o hover */
+  --bs-btn-hover-border-color: #3bd70b;
+  --bs-btn-active-bg: #0a58ca; /* Tom mais escuro para o clique */
+  --bs-btn-active-border-color: #0a58ca;
+}
+
+
+
+
+
+/* ========================================================== */
+/* ESTILO CUSTOMIZADO PARA O FUNDO ESCURO DO HEADER */
+/* ========================================================== */
+
+.header-custom-dark {
+  /* Usa a variável de fundo escuro que você definiu: --dark-bg: #212529 */
+  background-color: var(--bs-btn-active-bg) !important; 
+}
+
+
+/* ========================================================== */
+/* CONTROLE DE COR DOS LINKS NO HEADER ESCURO */
+/* ========================================================== */
+
+/* Cor padrão dos links no header escuro (use light-text para branco ou #ccc para cinza claro) */
+.header-custom-dark .text-light-link {
+  color: var(black) !important; /* Branco puro, se --light-text for branco */
+}
+
+/* Cor ao passar o mouse (hover) */
+.header-custom-dark .text-light-link:hover {
+  color: var(--accent-color) !important; /* Ciano/Azul de Destaque */
+}
+
+
+
+/* 1. Estilos Globais e Reset */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
 body {
-    background-color: var(--light-bg);
-    color: var(--dark-text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background-color: var(--header-bg); /* Fundo cinza claro */
+  color: var(--dark-text); /* Cor padrão do texto no body (Escuro) */
+  min-height: 100vh;
 }
 
-  /* 1. Estilos Globais e Reset */
-  html, body, #root {
-    height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-  }
-  
-  body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background-color: var(--header-bg);
-    color: var(--light-bg);
-    min-height: 100vh;
-  }
-  
-  .min-vh-100 {
-    min-height: 100vh;
-  }
-  
-  /* 2. Estilos de Formulários e Componentes Comuns */
-  .form-control:focus {
-    box-shadow: 0 0 0 0.25rem rgba(153, 50, 19, 0.25);
-    border-color: var(--primary-color);
-  }
-  
-  .img-slide {
-    width: 100%;
-    height: 400px;
-    object-fit: cover;
-  }
-  
-  .categoria-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 1.2rem 0.5rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    height: 100%;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-  }
-  
-  .categoria-btn i {
-    font-size: 2rem;
-    color: var(--primary-color);
-    margin-bottom: 0.5rem;
-  }
-  
-  .categoria-btn:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-    border-color: var(--accent-color);
-  }
-  
-  /* Cards de Perfil */
-  .card-perfil {
-    border-radius: 16px;
-    border: none;
-    transition: all 0.3s ease;
-    background: white;
-  }
-  
-  .card-perfil:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important;
-  }
-  
-  .perfil-img {
-    border: 3px solid var(--primary-color);
-  }
-  
-  /* ========================================================== */
-  /* 3. ProfileCard */
-  /* ========================================================== */
-  .profile-card {
-    min-height: 280px;
-    transition: transform 0.2s, box-shadow 0.2s;
-    background-color: var(--vagali-dark-card) !important;
-    border-radius: 8px;
-  }
-  
-  .profile-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.5) !important;
-  }
-  
-  .avatar-initials {
-    border: 2px solid var(--primary-color);
-  }
-  
-  .text-light-gray {
-    color: #ccc !important;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  /* ========================================================== */
-  /* 4. Barra de Busca */
-  /* ========================================================== */
-  .form-control.search-input {
-    background-color: #404040;
-    color: #ccc;
-    border: 1px solid #555;
-    transition: all 0.2s;
-  }
-  
-  .form-control.search-input::placeholder {
-    color: #888;
-  }
-  
-  .form-control.search-input:focus {
-    box-shadow: 0 0 0 0.25rem rgba(153, 50, 19, 0.25);
-    border-color: var(--primary-color);
-    background-color: #404040;
-    color: #fff;
-  }
-  
-  /* ========================================================== */
-  /* 5. Autenticação */
-  /* ========================================================== */
-  .auth-page-background {
-    background-color: #C0C0C0;
-    width: 100%;
-  }
-  
-  .bg-vagali-dark-card {
-    background-color: var(--vagali-dark-card) !important;
-    color: var(--light-bg);
-    border-radius: 10px;
-  }
-  
-  .form-control-dark {
-    background-color: #404040;
-    border: 1px solid #555;
-    color: var(--light-bg);
-  }
-  
-  .form-control-dark:focus {
-    background-color: #404040;
-    border-color: var(--primary-color);
-    color: var(--light-bg);
-    box-shadow: 0 0 0 0.25rem rgba(153, 50, 19, 0.25);
-  }
-  
-  .btn-custom-success {
-    background-color: var(--btn-success-color);
-    border-color: var(--btn-success-color);
-    color: white;
-  }
-  
-  .btn-custom-danger {
-    background-color: #404040;
-    border-color: #404040;
-    color: white;
-  }
-  
-  .text-vagali-link {
-    color: var(--vagali-link);
-    text-decoration: none;
-  }
-  
-  /* ========================================================== */
-  /* Dropdown de Categoria */
-  /* ========================================================== */
-  .categoria-toggle-wrapper {
-    padding: 0;
-    border: none;
-    background-color: transparent;
-    cursor: pointer;
-    height: 100%;
-  }
-  
-  .categoria-toggle-wrapper > .categoria-btn {
-    width: 100%;
-  }
-  
-  .dropdown-menu .dropdown-item {
-    color: white !important;
-  }
-  
-  .dropdown-menu .dropdown-item:hover {
-    background-color: var(--primary-color) !important;
-  }
+.min-vh-100 {
+  min-height: 100vh;
+}
+
+/* 2. Estilos de Formulários e Componentes Comuns */
+/* Foco nos campos de formulário (agora azul) */
+.form-control:focus {
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); 
+  border-color: var(--primary-color);
+}
+
+.img-slide {
+  width: 100%;
+  height: 400px;
+  object-fit: cover;
+}
+
+.categoria-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.2rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  height: 100%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.categoria-btn i {
+  font-size: 2rem;
+  color: var(--primary-color); /* Ícones azuis */
+  margin-bottom: 0.5rem;
+}
+
+.categoria-btn:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+  border-color: var(--accent-color); /* Borda ciano/azul de destaque */
+}
+
+/* Cards de Perfil */
+.card-perfil {
+  border-radius: 16px;
+  border: none;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.card-perfil:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important;
+}
+
+.perfil-img {
+  border: 3px solid var(--primary-color); /* Borda azul */
+}
+
+/* ========================================================== */
+/* 3. ProfileCard (Usado no MainFeed) */
+/* ========================================================== */
+.profile-card {
+  min-height: 280px;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background-color: var(--vagali-dark-card) !important;
+  border-radius: 8px;
+}
+
+.profile-card:hover {
+  transform: translateY(-5px);
+  /* Mantém uma sombra escura para destaque visual */
+  box-shadow: 0 10px 20px rgba(0,0,0,0.15) !important; 
+}
+
+.avatar-initials {
+  border: 2px solid var(--primary-color); /* Borda azul */
+}
+
+.text-light-gray {
+  color: var(--dark-text); /* Texto do card em cor escura */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ========================================================== */
+/* 4. Barra de Busca */
+/* ========================================================== */
+/* Ajuste os estilos de busca para o novo esquema (fundo claro) */
+.form-control.search-input {
+  background-color: white; 
+  color: var(--dark-text); 
+  border: 1px solid #ccc;
+  transition: all 0.2s;
+}
+
+.form-control.search-input::placeholder {
+  color: #888;
+}
+
+.form-control.search-input:focus {
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); /* Foco Azul */
+  border-color: var(--primary-color);
+  background-color: white;
+  color: var(--dark-text);
+}
+
+/* ========================================================== */
+/* 5. Estilos de Gerenciamento de Perfil/Auth */
+/* ========================================================== */
+.auth-page-background {
+  background-color: var(--header-bg); /* Fundo cinza claro */
+  width: 100%;
+}
+
+.bg-vagali-dark-card {
+  background-color: var(--vagali-dark-card) !important; /* Branco */
+  color: var(--dark-text); /* Texto escuro dentro do card */
+  border-radius: 10px;
+}
+
+/* Estilização para inputs dentro de cards (mantendo o estilo claro/padrão) */
+.form-control-dark {
+  background-color: var(--light-bg); /* Fundo claro */
+  border: 1px solid #ccc; /* Borda cinza suave */
+  color: var(--dark-text); /* Texto escuro */
+}
+
+.form-control-dark:focus {
+  background-color: var(--light-bg);
+  border-color: var(--primary-color); /* Foco azul */
+  color: var(--dark-text);
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); /* Sombra azul */
+}
+
+.btn-custom-success {
+  background-color: var(--btn-success-color);
+  border-color: var(--btn-success-color);
+  color: white;
+}
+
+.btn-custom-danger {
+  background-color: var(--btn-danger-color); /* Agora usa o vermelho padrão */
+  border-color: var(--btn-danger-color);
+  color: white;
+}
+
+.text-vagali-link {
+  color: var(--vagali-link);
+  text-decoration: none;
+}
+
+/* ========================================================== */
+/* Dropdown de Categoria */
+/* ========================================================== */
+.categoria-toggle-wrapper {
+  padding: 0;
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  height: 100%;
+}
+
+.categoria-toggle-wrapper > .categoria-btn {
+  width: 100%;
+}
+
+.dropdown-menu .dropdown-item {
+  color: var(--dark-text) !important; /* Item do menu em texto escuro */
+}
+
+.dropdown-menu .dropdown-item:hover {
+  background-color: var(--primary-color) !important; /* Fundo azul ao passar o mouse */
+  color: white !important; /* Texto branco */
+}
