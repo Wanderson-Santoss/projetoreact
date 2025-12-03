@@ -2,103 +2,26 @@
 /* VARIÁVEIS GLOBAIS (AZUL E CINZA) */
 /* ========================================================== */
 :root {
-  --primary-color: #0d6efd; /* Azul Principal (Bootstrap Primary) */
-  --accent-color: #17a2b8; /* Ciano/Azul de Destaque */
-  --light-bg: #f8fafc; /* Fundo claro principal (Off-White) */
-  --dark-bg: #212529; /* Fundo escuro (para texto) */
-  --dark-text: #212529; /* Texto escuro */
-  --light-text: #f8f9fa; /* Texto claro */
-  --header-bg: #e9ecef; /* Fundo de Header/Página (Cinza Claro) */
-  --vagali-dark-card: #ffffff; /* Fundo dos cards (Branco) */
-  --vagali-link: #0d6efd; /* Cor de links e textos clicáveis (Azul) */
-  --btn-success-color: #198754; /* Verde padrão para sucesso */
-  --btn-danger-color: #dc3545; /* Vermelho padrão para perigo */
+  --primary-color: #0d6efd;      /* Azul Principal (Bootstrap Primary) */
+  --accent-color: #17a2b8;       /* Ciano/Azul de Destaque */
+  --light-bg: #f8fafc;           /* Fundo claro principal (Off-White) */
+  --dark-bg: #212529;            /* Fundo escuro (para texto, usado no Header/Footer) */
+  --dark-text: #212529;          /* Texto escuro */
+  --light-text: #f8f9fa;         /* Texto claro */
+  --header-bg: #e9ecef;          /* Fundo de Header/Página (Cinza Claro) */
+  --vagali-dark-card: #ffffff;   /* Fundo dos cards (Branco) */
+  --vagali-link: #0d6efd;        /* Cor de links e textos clicáveis (Azul) */
+  --btn-success-color: #198754;  /* Verde padrão para sucesso */
+  --btn-danger-color: #dc3545;   /* Vermelho padrão para perigo */
 
-
-  --cor-texto-princilap:#db4e2b; 
-}
-
-
-
-
-/* ========================================================== */
-/* ESTILO CUSTOMIZADO PARA O RODAPÉ ESCURO (AZUL/CINZA) */
-/* ========================================================== */
-
-.footer-custom-dark {
-  /* Usa a variável de fundo escuro que você definiu: --dark-bg: #212529 */
-  background-color: var(--dark-bg) !important; 
-  color: var(--light-text) !important; /* Texto claro */
-}
-
-.footer-custom-dark .text-white-50 {
-  /* Mantém o texto secundário (links) em tom claro */
-  color: #adb5bd !important;
-}
-
-.footer-custom-dark a.text-white-50:hover {
-  /* Aplica o azul primário no hover dos links */
-  color: var(--primary-color) !important;
-}
-
-/* ========================================================== */
-/* SOBRESCRITA DAS CLASSES BOOTSTRAP */
-/* ========================================================== */
-
-/* Garante que qualquer elemento com a classe text-primary use a sua variável */
-.text-primary {
-  color: var(--cor-texto-princilap) !important;
-}
-
-/* Garante que qualquer elemento com a classe border-primary use a sua variável */
-.border-primary {
-  border-color: var(--primary-color) !important;
-}
-
-/* Garante que qualquer elemento com a classe bg-primary use a sua variável */
-.bg-primary {
-  background-color: var(--primary-color) !important;
-}
-
-/* E, se você usar botões primários: */
-.btn-primary {
-  --bs-btn-bg: var(--primary-color);
-  --bs-btn-border-color: var(--primary-color);
-  --bs-btn-hover-bg: #0b5ed7; /* Um tom ligeiramente mais escuro para o hover */
-  --bs-btn-hover-border-color: #3bd70b;
-  --bs-btn-active-bg: #0a58ca; /* Tom mais escuro para o clique */
-  --bs-btn-active-border-color: #0a58ca;
-}
-
-
-
-
-
-/* ========================================================== */
-/* ESTILO CUSTOMIZADO PARA O FUNDO ESCURO DO HEADER */
-/* ========================================================== */
-
-.header-custom-dark {
-  /* Usa a variável de fundo escuro que você definiu: --dark-bg: #212529 */
-  background-color: var(--bs-btn-active-bg) !important; 
+  /* Variável de Texto Principal (Cor Laranja que você definiu: #db4e2b) */
+  --cor-texto-principal: #db4e2b; 
 }
 
 
 /* ========================================================== */
-/* CONTROLE DE COR DOS LINKS NO HEADER ESCURO */
+/* ESTILO PADRÃO (GLOBAL) */
 /* ========================================================== */
-
-/* Cor padrão dos links no header escuro (use light-text para branco ou #ccc para cinza claro) */
-.header-custom-dark .text-light-link {
-  color: var(black) !important; /* Branco puro, se --light-text for branco */
-}
-
-/* Cor ao passar o mouse (hover) */
-.header-custom-dark .text-light-link:hover {
-  color: var(--accent-color) !important; /* Ciano/Azul de Destaque */
-}
-
-
 
 /* 1. Estilos Globais e Reset */
 html, body, #root {
@@ -119,7 +42,74 @@ body {
   min-height: 100vh;
 }
 
+
+/* ========================================================== */
+/* SOBRESCRITA DAS CLASSES BOOTSTRAP */
+/* ========================================================== */
+
+/* Garante que o text-primary use sua cor personalizada (Laranja: --cor-texto-principal) */
+.text-primary {
+  color: var(--cor-texto-principal) !important;
+}
+
+/* Garante que o border-primary use o Azul Principal */
+.border-primary {
+  border-color: var(--primary-color) !important;
+}
+
+/* Garante que o bg-primary use o Azul Principal */
+.bg-primary {
+  background-color: var(--primary-color) !important;
+}
+
+/* Botões Primários */
+.btn-primary {
+  --bs-btn-bg: var(--primary-color);
+  --bs-btn-border-color: var(--primary-color);
+  --bs-btn-hover-bg: #0b5ed7; /* Tom ligeiramente mais escuro para o hover */
+  --bs-btn-hover-border-color: #3bd70b;
+  --bs-btn-active-bg: #0a58ca; /* Tom mais escuro para o clique */
+  --bs-btn-active-border-color: #0a58ca;
+}
+
+
+/* ========================================================== */
+/* ESTILOS CUSTOMIZADOS DE HEADER E FOOTER (Fundo Escuro Unificado) */
+/* ========================================================== */
+
+/* Classe unificada para Fundo Escuro (Usada no Header e Footer) */
+.footer-custom-dark {
+  /* Usa a variável de fundo escuro: --dark-bg */
+  background-color: var(--dark-bg) !important; 
+  color: var(--light-text) !important; /* Texto claro padrão no bloco */
+}
+
+/* Cor dos links no Rodapé */
+.footer-custom-dark .text-white-50 {
+  color: #adb5bd !important; /* Cinza claro suave */
+}
+
+.footer-custom-dark a.text-white-50:hover {
+  color: var(--primary-color) !important; /* Azul no hover do rodapé */
+}
+
+/* CONTROLE DE COR DOS LINKS DE NAVEGAÇÃO DO HEADER */
+.footer-custom-dark .text-header-link {
+  /* 🔑 Garante a cor laranja (cor-texto-principal) para os links Início, Minha Conta, etc. */
+  color: var(--cor-texto-principal) !important; 
+  transition: color 0.2s;
+}
+
+.footer-custom-dark .text-header-link:hover {
+  /* Muda para o Azul Principal no hover */
+  color: var(--primary-color) !important; 
+}
+
+
+/* ========================================================== */
 /* 2. Estilos de Formulários e Componentes Comuns */
+/* ========================================================== */
+
 /* Foco nos campos de formulário (agora azul) */
 .form-control:focus {
   box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25); 
