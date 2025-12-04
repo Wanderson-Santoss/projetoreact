@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { Container, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
@@ -6,29 +6,50 @@ import { LockFill } from 'react-bootstrap-icons';
 
 const ChangePassword = () => {
     const navigate = useNavigate();
+    // 💡 NOVO ESTADO: Controla se a checagem inicial de token está em curso
+    const [isAuthChecking, setIsAuthChecking] = useState(true); 
+
     const [formData, setFormData] = useState({
         current_password: '',
         new_password: '',
-        re_new_password: '', // Confirmação da nova senha
+        re_new_password: '', 
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
 
-    // Endpoint padrão do Djoser/DRF para troca de senha
     const CHANGE_PASSWORD_URL = '/api/v1/auth/users/set_password/'; 
 
-    // --- Validação e Configuração ---
-    const token = localStorage.getItem('userToken');
+    // --- LÓGICA DE REDIRECIONAMENTO E CONFIGURAÇÃO ---
+    useEffect(() => {
+        const token = localStorage.getItem('userToken');
+        
+        if (!token) {
+            // Se não houver token, navega para o login (usa setTimeout para evitar race condition)
+            setTimeout(() => navigate('/login'), 50); 
+        } else {
+            // Se houver, configura o token para a requisição
+            axios.defaults.headers.common['Authorization'] = `Token ${token}`;
+            setIsAuthChecking(false); // Token encontrado, pode renderizar o formulário
+        }
 
-    if (!token) {
-        // Redireciona imediatamente se não houver token
-        navigate('/login');
-        return null; // Retorna null para não renderizar o formulário
-    }
+        // 💡 LIMPEZA: Remove o header Authorization ao desmontar
+        return () => {
+            if (token) {
+                delete axios.defaults.headers.common['Authorization'];
+            }
+        };
+    }, [navigate]);
     
-    // Configura o Axios para usar o token em requisições futuras (garante que está setado)
-    axios.defaults.headers.common['Authorization'] = `Token ${token}`;
+    // 🚨 CORREÇÃO DE RENDERIZAÇÃO: Mostra o spinner enquanto o token está sendo checado
+    if (isAuthChecking) {
+        return (
+            <Container className="d-flex flex-column align-items-center justify-content-center py-5" style={{ minHeight: '100vh' }}>
+                 <Spinner animation="border" variant="warning" />
+                 <p className="ms-2 text-muted">Verificando autenticação...</p>
+            </Container>
+        );
+    }
 
     const handleChange = (e) => {
         const { id, value } = e.target;
@@ -60,18 +81,15 @@ const ChangePassword = () => {
         }
 
         try {
-            // Envia a senha atual, nova senha e a confirmação para o backend
             const response = await axios.post(CHANGE_PASSWORD_URL, {
                 current_password: formData.current_password,
                 new_password: new_password,
                 re_new_password: re_new_password,
             });
 
-            // O DRF geralmente retorna 204 No Content ou 200 OK em caso de sucesso
             if (response.status === 204 || response.status === 200) {
                 setSuccess("Senha alterada com sucesso! Redirecionando para o perfil...");
                 
-                // Redireciona após o sucesso
                 setTimeout(() => navigate('/me'), 2000); 
             }
 
@@ -80,20 +98,20 @@ const ChangePassword = () => {
             
             let errorMessage = "Erro desconhecido. Verifique a senha atual e tente novamente.";
 
-            if (err.response && err.response.data) {
-                const errorData = err.response.data;
-
-                // Mapeamento de erros comuns do DRF
-                if (errorData.current_password) {
-                    errorMessage = `Senha Atual: ${errorData.current_password.join(' ')}`;
-                } else if (errorData.new_password) {
-                    errorMessage = `Nova Senha: ${errorData.new_password.join(' ')}`;
-                } else if (errorData.re_new_password) {
-                    errorMessage = `Confirmação de Senha: ${errorData.re_new_password.join(' ')}`;
-                } else if (errorData.non_field_errors) {
-                    errorMessage = errorData.non_field_errors.join(' ');
-                } else if (errorData.detail) {
-                     errorMessage = errorData.detail; // Erro genérico
+            if (err.response) {
+                if (err.response.status === 401) {
+                    errorMessage = "Sessão expirada. Faça login novamente.";
+                } else if (err.response.data) {
+                    const errorData = err.response.data;
+                    if (errorData.current_password) {
+                        errorMessage = `Senha Atual: ${errorData.current_password.join(' ')}`;
+                    } else if (errorData.new_password) {
+                        errorMessage = `Nova Senha: ${errorData.new_password.join(' ')}`;
+                    } else if (errorData.non_field_errors) {
+                        errorMessage = errorData.non_field_errors.join(' ');
+                    } else if (errorData.detail) {
+                         errorMessage = errorData.detail; 
+                    }
                 }
             }
             
@@ -104,7 +122,7 @@ const ChangePassword = () => {
         }
     };
     
-    // --- RENDERIZAÇÃO ---
+    // --- RENDERIZAÇÃO PRINCIPAL (SÓ APARECE SE AUTENTICADO) ---
     return (
         <Container className="d-flex align-items-center justify-content-center py-5" style={{ minHeight: '100vh' }}>
             <Card className="bg-vagali-dark-card p-4 shadow-lg" style={{ width: '450px' }}>

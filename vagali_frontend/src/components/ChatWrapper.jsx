@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Container, Row, Col, Card, Form, InputGroup, Button, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, InputGroup, Button, Badge, ListGroup } from 'react-bootstrap';
 import { Send, MessageSquare, ChevronRight, Search, Mic, Paperclip } from 'lucide-react'; 
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -20,7 +20,7 @@ const MOCKED_MESSAGES_INITIAL = {
     1: [
         { id: 1, sender_id: 123, text: 'Olá, sou o Marcos. Gostaria de saber mais sobre o serviço de elétrica.', timestamp: '14:00', is_read: true },
         { id: 2, sender_id: 999, text: 'Oi Marcos! A área é no centro. Qual o preço para a troca de fiação de 50m²?', timestamp: '14:02', is_read: true },
-        // 💡 Esta mensagem está como NÃO LIDA pelo usuário (SIMULATED_LOGGED_USER_ID)
+        // Esta mensagem está como NÃO LIDA pelo usuário (SIMULATED_LOGGED_USER_ID)
         { id: 3, sender_id: 123, text: 'O valor inicial ficaria entre R$800 e R$1200. Podemos agendar?', timestamp: '14:05', is_read: false },
     ],
     2: [
@@ -45,7 +45,7 @@ const MOCKED_PROFESSIONALS = [
 // ------------------------------------------------------
 
 
-// Componente para a Lista Lateral de Chats (Movido para aqui para simplificar)
+// Componente para a Lista Lateral de Chats
 const ChatListPanel = ({ conversations, selectedChatId, onSelectChat, onStartNewChat }) => {
     
     const [searchTerm, setSearchTerm] = useState('');
@@ -150,6 +150,11 @@ const ChatWrapper = () => {
     const [newMessage, setNewMessage] = useState('');
     const messagesEndRef = useRef(null);
     
+    // --- ESTADOS DE MÍDIA E ÁUDIO ---
+    const [isRecording, setIsRecording] = useState(false); 
+    const [recordingTime, setRecordingTime] = useState(0); 
+    // ---------------------------------
+    
     // Usando MOCKED_CONVERSATIONS_INITIAL e MOCKED_MESSAGES_INITIAL
     const [conversations, setConversations] = useState(MOCKED_CONVERSATIONS_INITIAL);
     const [mockedMessages, setMockedMessages] = useState(MOCKED_MESSAGES_INITIAL);
@@ -161,7 +166,7 @@ const ChatWrapper = () => {
     };
 
     /**
-     * 🟢 NOVA LÓGICA: Marcar mensagens do profissional como lidas
+     * 🟢 Lógica: Marcar mensagens do profissional como lidas
      */
     const markMessagesAsRead = useCallback((chatId) => {
         if (!chatId) return;
@@ -193,23 +198,51 @@ const ChatWrapper = () => {
     // Efeito para carregar mensagens, rolar e MARCAR COMO LIDAS
     useEffect(() => {
         scrollToBottom();
-        // 💡 CHAMADA CRUCIAL: Marca o chat atual como lido
+        // CHAMADA CRUCIAL: Marca o chat atual como lido
         if (selectedChatId) {
             markMessagesAsRead(selectedChatId);
         }
     }, [selectedChatId, mockedMessages, markMessagesAsRead]);
     
+    // 💡 Efeito para gerenciar o timer de gravação de áudio
+    useEffect(() => {
+        let timer;
+        if (isRecording) {
+            timer = setInterval(() => {
+                setRecordingTime(prevTime => prevTime + 1);
+            }, 1000);
+        }
+        // Limpa o intervalo ao parar ou desmontar
+        return () => clearInterval(timer);
+    }, [isRecording]);
+    
     const messages = selectedChatId ? mockedMessages[selectedChatId] || [] : [];
 
+    // ----------------------------------------------------------------------
+    // --- HANDLERS DE MENSAGEM ---
+    // ----------------------------------------------------------------------
+
+    const updateLastMessage = (chatId, text, timestamp) => {
+        setConversations(prev => prev.map(conv => 
+            conv.id === chatId ? { 
+                ...conv, 
+                lastMessage: text, 
+                timestamp: timestamp,
+            } : conv
+        ));
+    }
+    
     const handleSendMessage = () => {
         if (newMessage.trim() === '' || !selectedChatId) return;
+
+        const timestamp = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
         const newMsg = {
             id: Date.now(), 
             sender_id: SIMULATED_LOGGED_USER_ID,
             text: newMessage.trim(),
-            timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            is_read: true, // Mensagens enviadas pelo próprio usuário são sempre consideradas lidas
+            timestamp: timestamp,
+            is_read: true, 
         };
 
         // Simulação de envio: atualiza o estado de mensagens
@@ -218,18 +251,90 @@ const ChatWrapper = () => {
             [selectedChatId]: [...(prev[selectedChatId] || []), newMsg]
         }));
         
-        // Atualiza a última mensagem na lista de conversas
-        setConversations(prev => prev.map(conv => 
-            conv.id === selectedChatId ? { 
-                ...conv, 
-                lastMessage: newMsg.text, 
-                timestamp: newMsg.timestamp,
-                // Não altera 'unread' ao enviar mensagem, só ao receber
-            } : conv
-        ));
+        updateLastMessage(selectedChatId, newMsg.text, timestamp);
         
         setNewMessage('');
     };
+    
+    /**
+     * 📸 Handler para Mídia (Foto/Vídeo)
+     */
+    const handleMediaUpload = (event) => {
+        const file = event.target.files[0];
+        if (!file || !selectedChatId) return;
+
+        // Determina o tipo de mídia para exibir (apenas para simulação de texto)
+        const mediaType = file.type.startsWith('image/') ? 'Foto' : 
+                          file.type.startsWith('video/') ? 'Vídeo' : 'Arquivo';
+
+        const timestamp = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const mediaText = `[${mediaType} Enviada: ${file.name}]`;
+
+        const newMsg = {
+            id: Date.now(), 
+            sender_id: SIMULATED_LOGGED_USER_ID,
+            text: mediaText, // Texto de simulação
+            timestamp: timestamp,
+            is_read: true,
+            // Em um app real, o 'file' seria enviado para o servidor aqui.
+        };
+
+        // Adiciona a nova mensagem simulada
+        setMockedMessages(prev => ({
+            ...prev,
+            [selectedChatId]: [...(prev[selectedChatId] || []), newMsg]
+        }));
+        
+        updateLastMessage(selectedChatId, mediaText, timestamp);
+        
+        // Limpa o input file para permitir o upload do mesmo arquivo novamente
+        event.target.value = null; 
+    };
+
+    /**
+     * 🎙️ Handler para Áudio (Simulado)
+     */
+    const handleAudioRecording = () => {
+        if (!selectedChatId) return;
+
+        if (isRecording) {
+            // 🛑 Parar Gravação e Enviar
+            setIsRecording(false);
+            
+            // Simula o envio de uma mensagem de áudio
+            const simulatedAudioDuration = recordingTime > 0 ? `${recordingTime}s` : '0s';
+            const timestamp = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            const audioText = `[🎙️ Áudio Enviado - Duração: ${simulatedAudioDuration}]`;
+
+            // Só envia se houver tempo de gravação
+            if (recordingTime > 0) {
+                const newMsg = {
+                    id: Date.now(), 
+                    sender_id: SIMULATED_LOGGED_USER_ID,
+                    text: audioText,
+                    timestamp: timestamp,
+                    is_read: true,
+                };
+
+                setMockedMessages(prev => ({
+                    ...prev,
+                    [selectedChatId]: [...(prev[selectedChatId] || []), newMsg]
+                }));
+                
+                updateLastMessage(selectedChatId, audioText, timestamp);
+            }
+
+            setRecordingTime(0); // Zera o contador de tempo
+        } else {
+            // ▶️ Iniciar Gravação
+            setIsRecording(true);
+            setRecordingTime(0);
+        }
+    };
+
+    // ----------------------------------------------------------------------
+    // --- HANDLERS DE NAVEGAÇÃO E UX ---
+    // ----------------------------------------------------------------------
 
     const handleKeyPress = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -237,11 +342,6 @@ const ChatWrapper = () => {
             handleSendMessage();
         }
     };
-    
-    // Handlers de Mídia/Áudio omitidos por brevidade (mantendo o código original)
-    const handleMediaUpload = (event) => { /* ... */ alert("Simulação: Upload de mídia."); event.target.value = null; };
-    const handleAudioRecording = () => { /* ... */ alert("Simulação: Gravação de áudio."); };
-
     
     // Handler para iniciar um novo chat (ou abrir um existente)
     const handleStartNewChat = useCallback((professional) => {
@@ -327,13 +427,13 @@ const ChatWrapper = () => {
                                 {selectedChatId ? (
                                     messages.map(msg => {
                                         const isMe = msg.sender_id === SIMULATED_LOGGED_USER_ID;
-                                        // 🟢 NOVA LÓGICA: Destaque para mensagens não lidas
+                                        // Destaque para mensagens não lidas
                                         const isUnreadByMe = !isMe && !msg.is_read; 
 
                                         const bgColor = isMe 
                                             ? 'var(--accent-color)' 
                                             : isUnreadByMe 
-                                                ? 'var(--unread-highlight)' // Se não lida, cor de destaque
+                                                ? 'var(--unread-highlight)' 
                                                 : 'var(--secondary-color)';
                                                 
                                         const textColor = isMe ? '#000' : '#fff';
@@ -377,51 +477,62 @@ const ChatWrapper = () => {
                                         style={{ display: 'none' }}
                                         accept="image/*,video/*"
                                         onChange={handleMediaUpload}
-                                        disabled={!selectedChatId}
+                                        disabled={!selectedChatId || isRecording}
                                     />
                                     <Button 
                                         variant="info" 
                                         className="me-2 p-2 text-white" 
                                         onClick={() => document.getElementById('media-input').click()}
-                                        disabled={!selectedChatId}
+                                        disabled={!selectedChatId || isRecording}
                                         style={{ height: '45px', border: 'none' }} 
                                     >
                                         <Paperclip size={20} />
                                     </Button>
                                     
-                                    {/* Campo de Texto Principal */}
+                                    {/* Campo de Texto Principal / Indicador de Gravação */}
                                     <InputGroup className="flex-grow-1">
-                                        <Form.Control
-                                            as="textarea"
-                                            placeholder="Digite sua mensagem..."
-                                            value={newMessage}
-                                            onChange={(e) => setNewMessage(e.target.value)}
-                                            onKeyPress={handleKeyPress}
-                                            rows={1}
-                                            style={{ resize: 'none', backgroundColor: 'var(--header-bg)', color: 'var(--light-text)', borderColor: 'var(--accent-color)' }}
-                                            disabled={!selectedChatId}
-                                        />
-                                        {/* Botão de Envio de Texto */}
-                                        <Button 
-                                            variant="warning" 
-                                            onClick={handleSendMessage}
-                                            disabled={newMessage.trim() === '' || !selectedChatId}
-                                            className="fw-bold"
-                                            style={{ height: '45px' }}
-                                        >
-                                            <Send size={20} />
-                                        </Button>
+                                        {isRecording ? (
+                                            <div className="d-flex align-items-center justify-content-center w-100 p-2 rounded" 
+                                                 style={{ backgroundColor: '#fff3cd', color: '#856404', height: '45px', border: '1px solid #ffeeba' }}>
+                                                <Mic size={20} className="me-2 text-danger"/>
+                                                **Gravando...** ({recordingTime}s)
+                                            </div>
+                                        ) : (
+                                            <Form.Control
+                                                as="textarea"
+                                                placeholder="Digite sua mensagem..."
+                                                value={newMessage}
+                                                onChange={(e) => setNewMessage(e.target.value)}
+                                                onKeyPress={handleKeyPress}
+                                                rows={1}
+                                                style={{ resize: 'none', backgroundColor: 'var(--header-bg)', color: 'var(--light-text)', borderColor: 'var(--accent-color)' }}
+                                                disabled={!selectedChatId}
+                                            />
+                                        )}
+                                        
+                                        {/* Botão de Envio de Texto (só aparece se NÃO estiver gravando) */}
+                                        {!isRecording && (
+                                            <Button 
+                                                variant="warning" 
+                                                onClick={handleSendMessage}
+                                                disabled={newMessage.trim() === '' || !selectedChatId}
+                                                className="fw-bold"
+                                                style={{ height: '45px' }}
+                                            >
+                                                <Send size={20} />
+                                            </Button>
+                                        )}
                                     </InputGroup>
 
-                                    {/* Botão de Áudio (Microfone) */}
+                                    {/* Botão de Áudio (Microfone) - Muda cor e função */}
                                     <Button 
-                                        variant="danger" 
+                                        variant={isRecording ? 'success' : 'danger'} // Muda a cor para indicar gravação
                                         className="ms-2 p-2"
                                         onClick={handleAudioRecording}
-                                        disabled={!selectedChatId || newMessage.trim() !== ''}
+                                        disabled={!selectedChatId || (!isRecording && newMessage.trim() !== '')} // Não pode gravar se estiver digitando
                                         style={{ height: '45px' }}
                                     >
-                                        <Mic size={20} />
+                                        {isRecording ? <Send size={20} /> : <Mic size={20} />} {/* Ícone muda para Enviar quando gravando */}
                                     </Button>
                                 </div>
                             </Card.Footer>
